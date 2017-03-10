@@ -115,28 +115,38 @@ component jt12 port(
 );
 end component;
 
-component jt12_amp_stereo port(
-	clk : in std_logic;
-	sample : in std_logic;
-	volume : in std_logic_vector(2 downto 0);
-	psg	   : in std_logic_vector(5 downto 0);
-	enable_psg: in std_logic;
-	fmleft : in std_logic_vector(11 downto 0);
-	fmright: in std_logic_vector(11 downto 0);
-	postleft: out std_logic_vector(15 downto 0);
-	postright: out std_logic_vector(15 downto 0) );	
-end component;
+--component jt12_amp_stereo port(
+--	clk : in std_logic;
+--	sample : in std_logic;
+--	volume : in std_logic_vector(2 downto 0);
+--	psg	   : in std_logic_vector(5 downto 0);
+--	enable_psg: in std_logic;
+--	fmleft : in std_logic_vector(11 downto 0);
+--	fmright: in std_logic_vector(11 downto 0);
+--	postleft: out std_logic_vector(15 downto 0);
+--	postright: out std_logic_vector(15 downto 0) );	
+--end component;
 
 component jt12_mixer port(
 	clk 		: in std_logic;
 	rst			: in std_logic;
 	sample 		: in std_logic;
+	volume 		: in std_logic_vector(2 downto 0);
 	left_in 	: in std_logic_vector(8 downto 0);
 	right_in	: in std_logic_vector(8 downto 0);
-	psg			: in std_logic_vector(5 downto 0);
+	psg			: in std_logic_vector(11 downto 0);
 	enable_psg	: in std_logic;
 	left_out	: out std_logic_vector(15 downto 0);
 	right_out	: out std_logic_vector(15 downto 0) );	
+end component;
+
+component jt89 port(
+	clk 		: in std_logic;
+	clken 		: in std_logic;	
+	rst			: in std_logic;
+	wr_n		: in std_logic;
+	din 		: in std_logic_vector(7 downto 0);
+	sound		: out std_logic_vector(11 downto 0) );
 end component;
 
 -- "FLASH"
@@ -378,7 +388,7 @@ signal PSG_SEL			: std_logic;
 signal T80_PSG_SEL		: std_logic;
 signal TG68_PSG_SEL		: std_logic;
 signal PSG_DI			: std_logic_vector(7 downto 0);
-signal PSG_SND			: std_logic_vector(5 downto 0);
+signal PSG_SND			: std_logic_vector(11 downto 0);
 signal PSG_ENABLE		: std_logic;
 
 --signal FM_DTACK_N			: std_logic;
@@ -730,13 +740,23 @@ port map(
 
 -- PSG
 
-u_psg : work.psg
+--u_psg : work.psg
+--port map(
+--	clk		=> T80_CLK_N,
+--	clken	=> T80_CLKEN,
+--	WR_n	=> not PSG_SEL,
+--	D_in	=> PSG_DI,
+--	output	=> PSG_SND
+--);
+
+u_psg : jt89 
 port map(
-	clk		=> T80_CLK_N,
-	clken	=> T80_CLKEN,
-	WR_n	=> not PSG_SEL,
-	D_in	=> PSG_DI,
-	output	=> PSG_SND
+	clk 	=> T80_CLK_N,
+	clken 	=> T80_CLKEN,
+	rst		=> not T80_RESET_N,
+	wr_n	=> not PSG_SEL,
+	din 	=> PSG_DI,
+	sound	=> PSG_SND
 );
 
 -- FM
@@ -745,9 +765,11 @@ port map(
 	rst			=> RST_VCLK,
 	clk			=> MCLK,
 	sample		=> FM_SAMPLE,
+	volume		=> MASTER_VOLUME,
 	left_in 	=> FM_MUX_LEFT,
 	right_in	=> FM_MUX_RIGHT,
 	psg			=> PSG_SND,
+	--psg			=> "000000000000",
 	enable_psg	=> PSG_ENABLE,
 	left_out	=> DAC_LDATA,
 	right_out	=> DAC_RDATA
