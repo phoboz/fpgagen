@@ -49,6 +49,7 @@ entity Virtual_Toplevel is
 		reset : in std_logic;
 		MCLK : in std_logic;
 		SDR_CLK : in std_logic;
+		SYN_CLK : in std_logic;
 
 		DRAM_ADDR	: out std_logic_vector(rowAddrBits-1 downto 0);
 		DRAM_BA_0	: out std_logic;
@@ -62,8 +63,8 @@ entity Virtual_Toplevel is
 		DRAM_UDQM	: out std_logic;
 		DRAM_WE_N	: out std_logic;
 		
-		DAC_LDATA : out std_logic_vector(15 downto 0);
-		DAC_RDATA : out std_logic_vector(15 downto 0);
+		AUDIO_L : out std_logic;
+		AUDIO_R : out std_logic;
 		
 		VGA_R		: out std_logic_vector(7 downto 0);
 		VGA_G		: out std_logic_vector(7 downto 0);
@@ -93,51 +94,29 @@ entity Virtual_Toplevel is
 end entity;
 
 architecture rtl of Virtual_Toplevel is
-component jt12 port(
+component jt12_top port(
 	rst	: in std_logic;
-	clk : in std_logic;
-	din : in std_logic_vector(7 downto 0);
-	addr: in std_logic_vector(1 downto 0);
-	cs_n: in std_logic;
-	wr_n: in std_logic;	
-	limiter_en: in std_logic;
-	
-	dout: out std_logic_vector(7 downto 0);
-	snd_right:out std_logic_vector(11 downto 0);
-	snd_left:out std_logic_vector(11 downto 0);
-	clk_out : out std_logic;
-	sample	: out std_logic;	
-	-- Mux'ed output
-	mux_right	:out std_logic_vector(8 downto 0);
-	mux_left	:out std_logic_vector(8 downto 0);
-	mux_sample	:out std_logic;
-    irq_n:out std_logic
+	-- CPU interface
+	cpu_clk : in std_logic;
+	cpu_din : in std_logic_vector(7 downto 0);
+	cpu_addr: in std_logic_vector(1 downto 0);
+	cpu_cs_n: in std_logic;
+	cpu_wr_n: in std_logic;	
+	cpu_limiter_en: in std_logic;
+
+	cpu_dout: out std_logic_vector(7 downto 0);
+	cpu_irq_n:out std_logic;
+	-- Synthesizer clock domain
+	syn_clk : in std_logic;
+	-- FIR filters clock
+	fir_clk : in std_logic;
+	fir_volume : in std_logic_vector(2 downto 0);
+	enable_fm : in std_logic;
+	enable_psg : in std_logic;
+	-- 1 bit output per channel at 1.3MHz
+	syn_left : out std_logic;
+	syn_right : out std_logic
 );
-end component;
-
---component jt12_amp_stereo port(
---	clk : in std_logic;
---	sample : in std_logic;
---	volume : in std_logic_vector(2 downto 0);
---	psg	   : in std_logic_vector(5 downto 0);
---	enable_psg: in std_logic;
---	fmleft : in std_logic_vector(11 downto 0);
---	fmright: in std_logic_vector(11 downto 0);
---	postleft: out std_logic_vector(15 downto 0);
---	postright: out std_logic_vector(15 downto 0) );	
---end component;
-
-component jt12_mixer port(
-	clk 		: in std_logic;
-	rst			: in std_logic;
-	sample 		: in std_logic;
-	volume 		: in std_logic_vector(2 downto 0);
-	left_in 	: in std_logic_vector(8 downto 0);
-	right_in	: in std_logic_vector(8 downto 0);
-	psg			: in std_logic_vector(11 downto 0);
-	enable_psg	: in std_logic;
-	left_out	: out std_logic_vector(15 downto 0);
-	right_out	: out std_logic_vector(15 downto 0) );	
 end component;
 
 component jt89 port(
@@ -267,7 +246,17 @@ signal T80_DO              : std_logic_vector(7 downto 0);
 
 -- CLOCK GENERATION
 signal VCLK			: std_logic;
+-- Sets the maximum number of fanouts for a register or combinational
+-- cell.  The Quartus II software will replicate the cell and split
+-- the fanouts among the duplicates until the fanout of each cell
+-- is below the maximum.
+
+-- Declare the attribute or import its declaration from 
+-- altera.altera_syn_attributes
+attribute maxfan : natural;
 signal RST_VCLK	: std_logic; -- Reset for blocks using VCLK as clock
+attribute maxfan of RST_VCLK : signal is 400;
+
 signal RST_VCLK_aux : std_logic;
 signal VCLKCNT		: std_logic_vector(2 downto 0);
 -- signal VCLKCNT		: unsigned(2 downto 0);
@@ -373,15 +362,7 @@ signal FM_UDS_N			: std_logic;
 signal FM_LDS_N			: std_logic;
 signal FM_DI			: std_logic_vector(7 downto 0);
 signal FM_DO			: std_logic_vector(7 downto 0);
-signal FM_CLKOUT		: std_logic;
-signal FM_SAMPLE		: std_logic;
-signal FM_LEFT			: std_logic_vector(11 downto 0);
-signal FM_RIGHT			: std_logic_vector(11 downto 0);
-signal FM_MUX_LEFT		: std_logic_vector(8 downto 0);
-signal FM_MUX_RIGHT		: std_logic_vector(8 downto 0);
 signal FM_ENABLE		: std_logic;
-signal FM_AMP_LEFT		: std_logic_vector(11 downto 0);
-signal FM_AMP_RIGHT		: std_logic_vector(11 downto 0);
 
 -- PSG
 signal PSG_SEL			: std_logic;
@@ -749,61 +730,39 @@ port map(
 --	output	=> PSG_SND
 --);
 
-u_psg : jt89 
-port map(
-	clk 	=> T80_CLK_N,
-	clken 	=> T80_CLKEN,
-	rst		=> not T80_RESET_N,
-	wr_n	=> not PSG_SEL,
-	din 	=> PSG_DI,
-	sound	=> PSG_SND
-);
-
--- FM
-fm_mixer:jt12_mixer
-port map(
-	rst			=> RST_VCLK,
-	clk			=> MCLK,
-	sample		=> FM_SAMPLE,
-	volume		=> MASTER_VOLUME,
-	left_in 	=> FM_MUX_LEFT,
-	right_in	=> FM_MUX_RIGHT,
-	psg			=> PSG_SND,
-	--psg			=> "000000000000",
-	enable_psg	=> PSG_ENABLE,
-	left_out	=> DAC_LDATA,
-	right_out	=> DAC_RDATA
-);
---fm_amp : jt12_amp_stereo
+--u_psg : jt89 
 --port map(
---	clk			=> FM_CLKOUT,
---	volume		=> MASTER_VOLUME,
---	sample		=> FM_SAMPLE,
---	psg			=> PSG_SND,
---	enable_psg	=> PSG_ENABLE,
---	fmleft		=> FM_AMP_LEFT,
---	fmright		=> FM_AMP_RIGHT,
---	postleft		=> DAC_LDATA,
---	postright	=> DAC_RDATA
+--	clk 	=> T80_CLK_N,
+--	clken 	=> T80_CLKEN,
+--	rst		=> not T80_RESET_N,
+--	wr_n	=> not PSG_SEL,
+--	din 	=> PSG_DI,
+--	sound	=> PSG_SND
 --);
 
-fm : jt12
-port map(
-	rst		=> RST_VCLK,	-- gen-hw.txt line 328
-	clk		=> VCLK,
-	clk_out	=> FM_CLKOUT,
-	
-	limiter_en => not SW(5),
-	cs_n	=> not FM_SEL,
-	addr	=> FM_A,
-	wr_n	=> FM_RNW,
-	din			=> FM_DI,
-	dout		=> FM_DO,
-	mux_left	=> FM_MUX_LEFT,
-	mux_right	=> FM_MUX_RIGHT,
-	mux_sample	=> FM_SAMPLE
-);
-
+--fm : jt12_top
+--port map(
+--	rst		=> RST_VCLK,	-- gen-hw.txt line 328
+--	-- CPU interface
+--	cpu_clk	=> VCLK,
+--	--cpu_clk	=> T80_CLK_N,
+--	cpu_din		=> FM_DI,
+--	cpu_addr	=> FM_A,
+--	cpu_cs_n	=> not FM_SEL,
+--	cpu_wr_n	=> FM_RNW,
+--	cpu_limiter_en => not SW(5),
+--	
+--	cpu_dout	=> FM_DO,
+--	-- Synthesizer clock domain
+--	syn_clk		=> SYN_CLK,
+--	-- FIR filters clock
+--	fir_clk => MCLK,
+--	fir_volume => MASTER_VOLUME,
+--	enable_fm => FM_ENABLE,
+--	enable_psg => PSG_ENABLE,
+--	syn_left => AUDIO_L,
+--	syn_right=> AUDIO_R
+--);
 
 -- #############################################################################
 -- #############################################################################
@@ -2218,8 +2177,6 @@ VID_15KHZ <= SW(0);
 -- Audio control
 PSG_ENABLE <= not SW(3);
 FM_ENABLE <= not SW(4);
-FM_AMP_LEFT <= FM_LEFT when FM_ENABLE='1' else (others => '0');
-FM_AMP_RIGHT <= FM_RIGHT when FM_ENABLE='1' else (others => '0');
 
 -- #############################################################################
 -- #############################################################################

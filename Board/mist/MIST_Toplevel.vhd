@@ -117,15 +117,8 @@ signal ps2_mouse_clk_out : std_logic;
 signal ps2_mouse_dat_out : std_logic;
 
 -- Sigma Delta audio
-COMPONENT hybrid_pwm_sd
-	PORT
-	(
-		clk		:	 IN STD_LOGIC;
-		n_reset		:	 IN STD_LOGIC;
-		din		:	 IN STD_LOGIC_VECTOR(15 DOWNTO 0);
-		dout		:	 OUT STD_LOGIC
-	);
-END COMPONENT;
+signal SYN_CLK6 : std_logic;
+signal SYN_CLK : std_logic;
 
 COMPONENT video_vga_dither
 	GENERIC ( outbits : INTEGER := 4 );
@@ -214,14 +207,20 @@ component sd_card
 
 begin
 
-  U00 : entity work.pll
+	U00 : entity work.pll
     port map(
-      inclk0 => CLOCK_27(0),	-- 27 MHz external
-      c0     => MCLK,			-- 54 MHz internal
-		c1     => open,
-      c2     => memclk,			-- 108 Mhz
-      c3     => SDRAM_CLK,		-- 108 Mhz external
+		inclk0 => CLOCK_27(0),	-- 27 MHz external
+		c0     => MCLK,			-- 54 MHz internal
+		c1     => SYN_CLK6,		-- 7.7MHz, 6x of FM Synthesizer clock
+		c2     => memclk,			-- 108 Mhz
+		c3     => SDRAM_CLK,		-- 108 Mhz external
 		locked => pll_locked
+    );
+	
+	u_pll2 : entity work.syn_pll
+    port map(
+		inclk0 => SYN_CLK6,	-- 7.7MHz, 6x of FM Synthesizer clock
+		c0     => SYN_CLK	-- 1.3 MHz internal
     );
 
 --SDRAM_A(12)<='0';
@@ -252,6 +251,7 @@ virtualtoplevel : entity work.Virtual_Toplevel
 		reset => reset,
 		MCLK => MCLK,
 		SDR_CLK => memclk,
+		SYN_CLK => SYN_CLK,
 
     -- SDRAM DE1 ports
 --	 pMemClk => DRAM_CLK,
@@ -294,8 +294,8 @@ virtualtoplevel : entity work.Virtual_Toplevel
 	 
 	 LED => LED,
 
-	 DAC_LDATA => audiol,
-	 DAC_RDATA => audior,
+	 AUDIO_L => AUDIO_L,
+	 AUDIO_R => AUDIO_R,
 	 
 	 RS232_RXD => UART_RX,
 	 RS232_TXD => UART_TX
@@ -401,24 +401,5 @@ mydither : component video_vga_dither
  -- If 15kHz Video - composite sync to VGA_HS and VGA_VS high for MiST RGB cable
 VGA_HS <= not (vga_ths xor vga_tvs) when vid_15khz='1' else vga_ths;
 VGA_VS <= '1' when vid_15khz='1' else vga_tvs;
-
--- Do we have audio?  If so, instantiate a two DAC channels.
-leftsd: component hybrid_pwm_sd
-	port map
-	(
-		clk => MCLK,
-		n_reset => reset,
-		din => not audiol(15) & std_logic_vector(audiol(14 downto 0)),
-		dout => AUDIO_L
-	);
-	
-rightsd: component hybrid_pwm_sd
-	port map
-	(
-		clk => MCLK,
-		n_reset => reset,
-		din => not audior(15) & std_logic_vector(audior(14 downto 0)),
-		dout => AUDIO_R
-	);
 
 end architecture;

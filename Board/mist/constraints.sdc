@@ -39,7 +39,7 @@ set_time_format -unit ns -decimal_places 3
 #**************************************************************
 
 create_clock -name clk_27 -period 37.04 [get_ports {CLOCK_27[0]}]
-create_clock -name fm_clk3 -period 388.9 -waveform { 0 129.64 } [get_nets {virtualtoplevel|fm|u_clksync|u_clkgen|cnt3[0]}]
+#create_clock -name fm_clk3 -period 388.9 -waveform { 0 129.64 } [get_nets {virtualtoplevel|fm|u_clksync|u_clkgen|cnt3[0]}]
 
 #create_clock -name fm_clk6 -period 777.8 [get_nets {virtualtoplevel|fm|u_clksync|u_clkgen|clk_n6}]
 #create_clock -name VCLK -period 129.6 [get_nets {virtualtoplevel|VCLK}]
@@ -47,9 +47,9 @@ create_clock -name fm_clk3 -period 388.9 -waveform { 0 129.64 } [get_nets {virtu
 create_generated_clock -name VCLK -source [get_nets {U00|altpll_component|auto_generated|wire_pll1_clk[0]}] -divide_by 7 -duty_cycle 57.1 [get_nets {virtualtoplevel|VCLK}]
 # romrd_req is identified as a clock, it should not run faster than MCLK/2
 create_generated_clock -name romrd_req -source [get_nets {U00|altpll_component|auto_generated|wire_pll1_clk[0]}] -divide_by 7  [get_nets {virtualtoplevel|romrd_req}]
-create_generated_clock -name fm_clk6 -source [get_nets {virtualtoplevel|VCLK}] -divide_by 6 -duty_cycle 50 -phase 0 [get_nets {virtualtoplevel|fm|u_clksync|u_clkgen|clk_n6}]
-create_generated_clock -name ZCLK -source [get_nets {virtualtoplevel|VCLK}] -divide_by 14 -duty_cycle 50 [get_nets {virtualtoplevel|ZCLK}]
-create_generated_clock -name psg_clk -source [get_nets {virtualtoplevel|ZCLK}] -divide_by 32 [get_nets {virtualtoplevel|u_psg|clk_divide[4]}]
+#create_generated_clock -name fm_clk6 -source [get_nets {virtualtoplevel|VCLK}] -divide_by 6 -duty_cycle 50 -phase 0 [get_nets {virtualtoplevel|fm|u_clksync|u_clkgen|clk_n6}]
+create_generated_clock -name ZCLK -source [get_nets {virtualtoplevel|MCLK}] -divide_by 14 -duty_cycle 50 [get_nets {virtualtoplevel|ZCLK}]
+#create_generated_clock -name psg_clk -source [get_nets {virtualtoplevel|ZCLK}] -divide_by 32 [get_nets {virtualtoplevel|u_psg|clk_divide[4]}]
 #create_generated_clock -name psg_noise -source [get_nets {virtualtoplevel|u_psg|clk_divide[4]}] -divide_by 2 [get_nets {virtualtoplevel|u_psg|t3|v}]
 
 # spi clock is at most 1/2 of SDR_CLK (mem_clk) )pin of virtual_Toplevel
@@ -72,6 +72,7 @@ create_clock -name SPICLK -period 37.04 [get_ports {SPI_SCK}]
 #**************************************************************
 
 derive_pll_clocks 
+
 create_generated_clock -name sd1clk_pin -source [get_pins {U00|altpll_component|auto_generated|pll1|clk[3]}] [get_ports {SDRAM_CLK}]
 create_generated_clock -name memclk -source [get_pins {U00|altpll_component|auto_generated|pll1|clk[2]}]
 # MCLK
@@ -149,7 +150,17 @@ set_false_path -from {*uart|txd} -to {UART_TX}
 set_false_path  -from  [get_clocks {VCLK}]  -to  [get_clocks {fm_clk6}]
 
 #JT12 output is not synchronous to the DAC:
-set_false_path  -from  [get_clocks {fm_clk6}]  -to  [get_clocks {U00|altpll_component|auto_generated|pll1|clk[2]}]
+#set_false_path  -from  [get_clocks {fm_clk6}]  -to  [get_clocks {U00|altpll_component|auto_generated|pll1|clk[2]}]
+
+set_false_path -from [get_keepers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|flag_A_s}] -to [get_keepers {Virtual_Toplevel:virtualtoplevel|T80_FM_D[0]}]
+set_false_path -from [get_keepers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|flag_B_s}] -to [get_keepers {Virtual_Toplevel:virtualtoplevel|T80_FM_D[1]}]
+set_false_path -from [get_keepers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|busy}] -to [get_keepers {Virtual_Toplevel:virtualtoplevel|T80_FM_D[7]}]
+set_false_path -from [get_keepers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|flag_A_s}] -to [get_keepers {Virtual_Toplevel:virtualtoplevel|TG68_FM_D[0]}]
+set_false_path -from [get_keepers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|flag_B_s}] -to [get_keepers {Virtual_Toplevel:virtualtoplevel|TG68_FM_D[1]}]
+set_false_path -from [get_keepers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|flag_A_s}] -to [get_keepers {Virtual_Toplevel:virtualtoplevel|TG68_FM_D[8]}]
+set_false_path -from [get_keepers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|flag_B_s}] -to [get_keepers {Virtual_Toplevel:virtualtoplevel|TG68_FM_D[9]}]
+set_false_path -from [get_keepers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|busy}] -to [get_keepers {Virtual_Toplevel:virtualtoplevel|TG68_FM_D[7]}]
+set_false_path -from [get_keepers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|busy}] -to [get_keepers {Virtual_Toplevel:virtualtoplevel|TG68_FM_D[15]}]
 
 # set_false_path -from [get_registers {Virtual_Toplevel:virtualtoplevel|jt12:fm|jt12_clksync:u_clksync|write_copy}] -to [get_nets {virtualtoplevel|fm|u_clksync|write}]
 #**************************************************************
