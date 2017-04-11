@@ -40,59 +40,63 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 use IEEE.STD_LOGIC_TEXTIO.all;
 use IEEE.NUMERIC_STD.ALL;
 
-entity Virtual_Toplevel is
-	generic (
-		colAddrBits : integer := 9;
-		rowAddrBits : integer := 13
-	);
+entity gen_top is
 	port(
-		reset : in std_logic;
-		MCLK : in std_logic;
-		SDR_CLK : in std_logic;
+		MRST_N		: in std_logic;
+		TG68_RES_N	: in std_logic;
+		MCLK			: in std_logic;
 
-		DRAM_ADDR	: out std_logic_vector(rowAddrBits-1 downto 0);
-		DRAM_BA_0	: out std_logic;
-		DRAM_BA_1	: out std_logic;
-		DRAM_CAS_N	: out std_logic;
-		DRAM_CKE	: out std_logic;
-		DRAM_CS_N	: out std_logic;
-		DRAM_DQ		: inout std_logic_vector(15 downto 0);
-		DRAM_LDQM	: out std_logic;
-		DRAM_RAS_N	: out std_logic;
-		DRAM_UDQM	: out std_logic;
-		DRAM_WE_N	: out std_logic;
-		
-		DAC_LDATA : out std_logic_vector(15 downto 0);
-		DAC_RDATA : out std_logic_vector(15 downto 0);
-		
-		VGA_R		: out std_logic_vector(7 downto 0);
-		VGA_G		: out std_logic_vector(7 downto 0);
-		VGA_B		: out std_logic_vector(7 downto 0);
-		VGA_VS		: out std_logic;
-		VGA_HS		: out std_logic;
-		VID_15KHZ	: out std_logic;
-		
-		LED : out std_logic;
+		romrd_req	: out std_logic;
+		romrd_ack	: in std_logic;
+		romrd_a		: out std_logic_vector(21 downto 3);
+		romrd_q		: in std_logic_vector(63 downto 0);
 
-		RS232_RXD : in std_logic;
-		RS232_TXD : out std_logic;
+		-- 68000 RAM
+		ram68k_req	: out std_logic;
+		ram68k_ack	: in std_logic;
+		ram68k_we	: out std_logic;
+		ram68k_a		: out std_logic_vector(15 downto 1);
+		ram68k_d 	: out std_logic_vector(15 downto 0);
+		ram68k_q		: in std_logic_vector(15 downto 0);
+		ram68k_l_n	: out std_logic;
+		ram68k_u_n	: out std_logic;
 
-		ps2k_clk_out : out std_logic;
-		ps2k_dat_out : out std_logic;
-		ps2k_clk_in : in std_logic;
-		ps2k_dat_in : in std_logic;
+		-- VRAM
+		vram_req		: out std_logic;
+		vram_ack		: in std_logic;
+		vram_we		: out std_logic;
+		vram_a		: out std_logic_vector(15 downto 1);
+		vram_d		: out std_logic_vector(15 downto 0);
+		vram_q		: in std_logic_vector(15 downto 0);
+		vram_l_n		: out std_logic;
+		vram_u_n		: out std_logic;
 		
-		joya : in std_logic_vector(7 downto 0) := (others =>'1');
-		joyb : in std_logic_vector(7 downto 0) := (others =>'1');
+		-- Video Output
+		RED			: out std_logic_vector(3 downto 0);
+		GREEN			: out std_logic_vector(3 downto 0);
+		BLUE			: out std_logic_vector(3 downto 0);
+		VS_N			: out std_logic;
+		HS_N			: out std_logic;
 
-		spi_miso		: in std_logic := '1';
-		spi_mosi		: out std_logic;
-		spi_clk		: out std_logic;
-		spi_cs 		: out std_logic
+		VGA_RED		: out std_logic_vector(3 downto 0);
+		VGA_GREEN	: out std_logic_vector(3 downto 0);
+		VGA_BLUE		: out std_logic_vector(3 downto 0);
+		VGA_VS_N		: out std_logic;
+		VGA_HS_N		: out std_logic;
+
+		-- Audio
+		MASTER_VOLUME	: in std_logic_vector(2 downto 0);
+		DAC_LDATA		: out std_logic_vector(15 downto 0);
+		DAC_RDATA		: out std_logic_vector(15 downto 0);
+
+		-- Controls
+		JOY_1			: in std_logic_vector(7 downto 0);
+		JOY_2			: in std_logic_vector(7 downto 0);
+		SW				: in std_logic_vector(15 downto 0)
 	);
 end entity;
 
-architecture rtl of Virtual_Toplevel is
+architecture rtl of gen_top is
 component jt12 port(
 	rst	: in std_logic;
 	clk : in std_logic;
@@ -139,18 +143,6 @@ component jt12_mixer port(
 	right_out	: out std_logic_vector(15 downto 0) );	
 end component;
 
--- "FLASH"
-signal romwr_req : std_logic := '0';
-signal romwr_ack : std_logic;
-signal romwr_we  : std_logic := '1';
-signal romwr_a : unsigned(21 downto 1);
-signal romwr_d : std_logic_vector(15 downto 0);
-signal romwr_q : std_logic_vector(15 downto 0);
-
-signal romrd_req : std_logic := '0';
-signal romrd_ack : std_logic;
-signal romrd_a : std_logic_vector(21 downto 3);
-signal romrd_q : std_logic_vector(63 downto 0);
 signal romrd_a_cached : std_logic_vector(21 downto 3);
 signal romrd_q_cached : std_logic_vector(63 downto 0);
 type fc_t is ( FC_IDLE, 
@@ -160,32 +152,18 @@ type fc_t is ( FC_IDLE,
 );
 signal FC : fc_t;
 
--- 68000 RAM
-signal ram68k_req : std_logic;
-signal ram68k_ack : std_logic;
-signal ram68k_we : std_logic;
-signal ram68k_a : std_logic_vector(15 downto 1);
-signal ram68k_d : std_logic_vector(15 downto 0);
-signal ram68k_q : std_logic_vector(15 downto 0);
-signal ram68k_l_n : std_logic;
-signal ram68k_u_n : std_logic;
-
--- VRAM
-signal vram_req : std_logic;
-signal vram_ack : std_logic;
-signal vram_we : std_logic;
-signal vram_a : std_logic_vector(15 downto 1);
-signal vram_d : std_logic_vector(15 downto 0);
-signal vram_q : std_logic_vector(15 downto 0);
-signal vram_l_n : std_logic;
-signal vram_u_n : std_logic;
-
 
 type sdrc_t is ( SDRC_IDLE,
 	SDRC_TG68,
 	SDRC_DMA, 
 	SDRC_T80);
 signal SDRC : sdrc_t;
+
+-- ROM
+signal romrd_req_reg : std_logic;
+
+-- 68K RAM
+signal ram68k_req_reg : std_logic;
 
 -- Z80 RAM
 
@@ -215,11 +193,8 @@ constant useCache : boolean := false;
 -- Genesis core
 signal NO_DATA		: std_logic_vector(15 downto 0) := x"4E71";	-- SYNTHESIS gp/m68k.c line 12
 
-signal MRST_N		: std_logic;
-
 -- 68K
 signal TG68_CLK		: std_logic;
-signal TG68_RES_N	: std_logic;
 signal TG68_CLKE	: std_logic;
 signal TG68_DI		: std_logic_vector(15 downto 0);
 signal TG68_IPL_N	: std_logic_vector(2 downto 0);
@@ -369,9 +344,6 @@ signal FM_LEFT			: std_logic_vector(11 downto 0);
 signal FM_RIGHT			: std_logic_vector(11 downto 0);
 signal FM_MUX_LEFT		: std_logic_vector(8 downto 0);
 signal FM_MUX_RIGHT		: std_logic_vector(8 downto 0);
-signal FM_ENABLE		: std_logic;
-signal FM_AMP_LEFT		: std_logic_vector(11 downto 0);
-signal FM_AMP_RIGHT		: std_logic_vector(11 downto 0);
 
 -- PSG
 signal PSG_SEL			: std_logic;
@@ -379,7 +351,6 @@ signal T80_PSG_SEL		: std_logic;
 signal TG68_PSG_SEL		: std_logic;
 signal PSG_DI			: std_logic_vector(7 downto 0);
 signal PSG_SND			: std_logic_vector(5 downto 0);
-signal PSG_ENABLE		: std_logic;
 
 --signal FM_DTACK_N			: std_logic;
 
@@ -418,75 +389,8 @@ signal VBUS_UDS_N	: std_logic;
 signal VBUS_LDS_N	: std_logic;
 signal VBUS_DATA	: std_logic_vector(15 downto 0);		
 signal VBUS_SEL		: std_logic;
-signal VBUS_DTACK_N	: std_logic;	
+signal VBUS_DTACK_N	: std_logic;
 
--- VDP Video Output
-signal VDP_RED		: std_logic_vector(3 downto 0);
-signal VDP_GREEN	: std_logic_vector(3 downto 0);
-signal VDP_BLUE	: std_logic_vector(3 downto 0);
-signal VDP_VS_N	: std_logic;
-signal VDP_HS_N	: std_logic;
-
-signal VDP_VGA_RED	: std_logic_vector(3 downto 0);
-signal VDP_VGA_GREEN	: std_logic_vector(3 downto 0);
-signal VDP_VGA_BLUE	: std_logic_vector(3 downto 0);
-signal VDP_VGA_VS_N	: std_logic;
-signal VDP_VGA_HS_N	: std_logic;
-
--- NTSC/RGB Video Output
-signal RED			: std_logic_vector(7 downto 0);
-signal GREEN			: std_logic_vector(7 downto 0);
-signal BLUE			: std_logic_vector(7 downto 0);		
-signal VS_N			: std_logic;
-signal HS_N			: std_logic;
-
--- VGA Video Output
-signal VGA_RED			: std_logic_vector(7 downto 0);
-signal VGA_GREEN			: std_logic_vector(7 downto 0);
-signal VGA_BLUE			: std_logic_vector(7 downto 0);		
-signal VGA_VS_N			: std_logic;
-signal VGA_HS_N			: std_logic;
-
--- current video signal (switchable between TV and VGA)
-signal vga_red_i : std_logic_vector(7 downto 0);
-signal vga_green_i : std_logic_vector(7 downto 0);
-signal vga_blue_i	: std_logic_vector(7 downto 0);		
-signal vga_vsync_i : std_logic;
-signal vga_hsync_i : std_logic;
-
--- Joystick signals
-signal JOY_SWAP	: std_logic;
-signal JOY_1 		: std_logic_vector(7 downto 0);
-signal JOY_2 		: std_logic_vector(7 downto 0);
-
-signal SDR_INIT_DONE	: std_logic;
-signal PRE_RESET_N	: std_logic;
-
-type bootStates is (BOOT_READ_1, BOOT_WRITE_1, BOOT_WRITE_2, BOOT_DONE);
-signal bootState : bootStates := BOOT_READ_1;
-
-signal host_reset_n : std_logic;
-signal host_bootdone : std_logic;
-signal rommap : std_logic_vector(1 downto 0);
-
-signal boot_req : std_logic;
-signal boot_ack : std_logic;
-signal boot_data : std_logic_vector(15 downto 0);
-signal FL_DQ : std_logic_vector(15 downto 0);
-
-signal osd_window : std_logic;
-signal osd_pixel : std_logic;
-
-type romStates is (ROM_IDLE, ROM_READ);
-signal romState : romStates := ROM_IDLE;
-
-signal SW : std_logic_vector(15 downto 0);
-signal KEY : std_logic_vector(3 downto 0);
-
-signal gp1emu : std_logic_vector(7 downto 0);
-signal gp2emu : std_logic_vector(7 downto 0);
-
-signal MASTER_VOLUME : std_logic_vector(2 downto 0);
 
 -- DEBUG
 signal HEXVALUE			: std_logic_vector(15 downto 0);
@@ -494,77 +398,6 @@ signal HEXVALUE			: std_logic_vector(15 downto 0);
 
 begin
 
--- -----------------------------------------------------------------------
--- Global assignments
--- -----------------------------------------------------------------------
-
--- Reset
-PRE_RESET_N <= reset and SDR_INIT_DONE and host_reset_n;
-MRST_N <= PRE_RESET_N;
-
--- Joystick swapping
-JOY_SWAP <= SW(2);
-JOY_1 <= joyb when JOY_SWAP = '1' else joya;
-JOY_2 <= joya when JOY_SWAP = '1' else joyb;
-
--- SDRAM
-DRAM_CKE <= '1';
-DRAM_CS_N <= '0';
-
--- LED
-LED <= FM_ENABLE;
-
--- -----------------------------------------------------------------------
--- SDRAM Controller
--- -----------------------------------------------------------------------		
-sdc : entity work.sdram_controller generic map (
-	colAddrBits => colAddrBits,
-	rowAddrBits => rowAddrBits
-) port map(
-	clk			=> SDR_CLK,
-	
-	std_logic_vector(sd_data)	=> DRAM_DQ,
-	std_logic_vector(sd_addr)	=> DRAM_ADDR,
-	sd_we_n							=> DRAM_WE_N,
-	sd_ras_n							=> DRAM_RAS_N,
-	sd_cas_n							=> DRAM_CAS_N,
-	sd_ba_0							=> DRAM_BA_0,
-	sd_ba_1							=> DRAM_BA_1,
-	sd_ldqm							=> DRAM_LDQM,
-	sd_udqm							=> DRAM_UDQM,
-		
-	romwr_req	=> romwr_req,
-	romwr_ack	=> romwr_ack,
-	romwr_we 	=> romwr_we,
-	romwr_a		=> std_logic_vector(romwr_a),
-	romwr_d		=> romwr_d,
-	romwr_q		=> romwr_q,
-	
-	romrd_req	=> romrd_req,
-	romrd_ack	=> romrd_ack,
-	romrd_a		=> romrd_a,
-	romrd_q		=> romrd_q,
-
-	ram68k_req	=> ram68k_req,
-	ram68k_ack	=> ram68k_ack,
-	ram68k_we	=> ram68k_we,
-	ram68k_a		=> ram68k_a,
-	ram68k_d		=> ram68k_d,
-	ram68k_q		=> ram68k_q,
-	ram68k_u_n	=> ram68k_u_n,
-	ram68k_l_n	=> ram68k_l_n,
-
-	vram_req	=> vram_req,
-	vram_ack => vram_ack,
-	vram_we	=> vram_we,
-	vram_a	=> vram_a,
-	vram_d	=> vram_d,
-	vram_q	=> vram_q,
-	vram_u_n => vram_u_n,
-	vram_l_n => vram_l_n,
-	
-	initDone 	=> SDR_INIT_DONE
-);
 
 -- -----------------------------------------------------------------------
 -- Z80 RAM
@@ -645,23 +478,23 @@ port map(
 	RST_N		=> MRST_N,
 	CLK			=> VCLK,
 
-	P1_UP		=> not JOY_1(3) and gp1emu(0),
-	P1_DOWN	=> not JOY_1(2) and gp1emu(1),
-	P1_LEFT	=> not JOY_1(1) and gp1emu(2),
-	P1_RIGHT	=> not JOY_1(0) and gp1emu(3),
-	P1_A		=> not JOY_1(4) and gp1emu(4),
-	P1_B		=> not JOY_1(5) and gp1emu(5),
-	P1_C		=> not JOY_1(6) and gp1emu(6),
-	P1_START	=> not JOY_1(7) and gp1emu(7),
+	P1_UP		=> not JOY_1(0),
+	P1_DOWN	=> not JOY_1(1),
+	P1_LEFT	=> not JOY_1(2),
+	P1_RIGHT	=> not JOY_1(3),
+	P1_A		=> not JOY_1(4),
+	P1_B		=> not JOY_1(5),
+	P1_C		=> not JOY_1(6),
+	P1_START	=> not JOY_1(7),
 		
-	P2_UP		=> not JOY_2(3) and gp2emu(0),
-	P2_DOWN	=> not JOY_2(2) and gp2emu(1),
-	P2_LEFT	=> not JOY_2(1) and gp2emu(2),
-	P2_RIGHT	=> not JOY_2(0) and gp2emu(3),
-	P2_A		=> not JOY_2(4) and gp2emu(4),
-	P2_B		=> not JOY_2(5) and gp2emu(5),
-	P2_C		=> not JOY_2(6) and gp2emu(6),
-	P2_START	=> not JOY_2(7) and gp2emu(7),
+	P2_UP		=> not JOY_2(0),
+	P2_DOWN	=> not JOY_2(1),
+	P2_LEFT	=> not JOY_2(2),
+	P2_RIGHT	=> not JOY_2(3),
+	P2_A		=> not JOY_2(4),
+	P2_B		=> not JOY_2(5),
+	P2_C		=> not JOY_2(6),
+	P2_START	=> not JOY_2(7),
 		
 	SEL		=> IO_SEL,
 	A			=> IO_A,
@@ -715,17 +548,17 @@ port map(
 	VBUS_SEL			=> VBUS_SEL,
 	VBUS_DTACK_N	=> VBUS_DTACK_N,
 	
-	R					=> VDP_RED,
-	G					=> VDP_GREEN,
-	B					=> VDP_BLUE,
-	HS					=> VDP_HS_N,
-	VS					=> VDP_VS_N,
+	R					=> RED,
+	G					=> GREEN,
+	B					=> BLUE,
+	HS					=> HS_N,
+	VS					=> VS_N,
 	
-	VGA_R				=> VDP_VGA_RED,
-	VGA_G				=> VDP_VGA_GREEN,
-	VGA_B				=> VDP_VGA_BLUE,
-	VGA_HS			=> VDP_VGA_HS_N,
-	VGA_VS			=> VDP_VGA_VS_N
+	VGA_R				=> VGA_RED,
+	VGA_G				=> VGA_GREEN,
+	VGA_B				=> VGA_BLUE,
+	VGA_HS			=> VGA_HS_N,
+	VGA_VS			=> VGA_VS_N
 );
 
 -- PSG
@@ -748,22 +581,10 @@ port map(
 	left_in 	=> FM_MUX_LEFT,
 	right_in	=> FM_MUX_RIGHT,
 	psg			=> PSG_SND,
-	enable_psg	=> PSG_ENABLE,
+	enable_psg	=> not SW(3),
 	left_out	=> DAC_LDATA,
 	right_out	=> DAC_RDATA
 );
---fm_amp : jt12_amp_stereo
---port map(
---	clk			=> FM_CLKOUT,
---	volume		=> MASTER_VOLUME,
---	sample		=> FM_SAMPLE,
---	psg			=> PSG_SND,
---	enable_psg	=> PSG_ENABLE,
---	fmleft		=> FM_AMP_LEFT,
---	fmright		=> FM_AMP_RIGHT,
---	postleft		=> DAC_LDATA,
---	postright	=> DAC_RDATA
---);
 
 fm : jt12
 port map(
@@ -940,7 +761,6 @@ VBUS_DATA <= DMA_FLASH_D when DMA_FLASH_SEL = '1'
 	else x"FFFF";
 
 -- 68K INPUTS
-TG68_RES_N <= MRST_N and host_bootdone;
 TG68_CLK <= VCLK;
 TG68_CLKE <= '1';
 
@@ -1624,11 +1444,14 @@ end process;
 -- -----------------------------------------------------------------------
 -- -----------------------------------------------------------------------
 -- -----------------------------------------------------------------------
--- MiST Memory Handling
+-- Memory Handling
 -- -----------------------------------------------------------------------
 -- -----------------------------------------------------------------------
 -- -----------------------------------------------------------------------
 -- -----------------------------------------------------------------------
+
+romrd_req <= romrd_req_reg;
+ram68k_req <= ram68k_req_reg;
 
 -- FLASH (SDRAM) CONTROL
 process( MRST_N, MCLK, TG68_AS_N, TG68_RNW,
@@ -1670,7 +1493,7 @@ begin
 		T80_FLASH_DTACK_N <= '1';
 		DMA_FLASH_DTACK_N <= '1';
 
-		romrd_req <= '0';
+		romrd_req_reg <= '0';
 		romrd_a_cached <= (others => '1');
 		romrd_q_cached <= (others => '0');
 		
@@ -1712,7 +1535,7 @@ begin
 						end case;
 						TG68_FLASH_DTACK_N <= '0';
 					else
-						romrd_req <= not romrd_req;
+						romrd_req_reg <= not romrd_req_reg;
 						romrd_a <= TG68_A(21 downto 3);
 						romrd_a_cached <= TG68_A(21 downto 3);
 						FC <= FC_TG68_RD;
@@ -1742,7 +1565,7 @@ begin
 						end case;
 						T80_FLASH_DTACK_N <= '0';
 					else
-						romrd_req <= not romrd_req;
+						romrd_req_reg <= not romrd_req_reg;
 						romrd_a <= BAR(21 downto 15) & T80_A(14 downto 3);
 						romrd_a_cached <= BAR(21 downto 15) & T80_A(14 downto 3);		
 						FC <= FC_T80_RD;
@@ -1763,7 +1586,7 @@ begin
 						end case;
 						DMA_FLASH_DTACK_N <= '0';
 					else
-						romrd_req <= not romrd_req;
+						romrd_req_reg <= not romrd_req_reg;
 						romrd_a <= VBUS_ADDR(21 downto 3);
 						romrd_a_cached <= VBUS_ADDR(21 downto 3);
 						FC <= FC_DMA_RD;
@@ -1772,7 +1595,7 @@ begin
 			end if;
 		
 		when FC_TG68_RD =>
-			if romrd_req = romrd_ack then
+			if romrd_req_reg = romrd_ack then
 				romrd_q_cached <= romrd_q;
 				case TG68_A(2 downto 1) is
 				when "00" =>
@@ -1798,7 +1621,7 @@ begin
 			end if;
 
 		when FC_T80_RD =>
-			if romrd_req = romrd_ack then
+			if romrd_req_reg = romrd_ack then
 				romrd_q_cached <= romrd_q;
 -- /!\
 				case T80_A(2 downto 0) is
@@ -1825,7 +1648,7 @@ begin
 			end if;
 		
 		when FC_DMA_RD =>
-			if romrd_req = romrd_ack then
+			if romrd_req_reg = romrd_ack then
 				romrd_q_cached <= romrd_q;
 				case VBUS_ADDR(2 downto 1) is
 				when "00" =>
@@ -1888,7 +1711,7 @@ begin
 		T80_SDRAM_DTACK_N <= '1';
 		DMA_SDRAM_DTACK_N <= '1';
 
-		ram68k_req <= '0';
+		ram68k_req_reg <= '0';
 		
 		SDRC <= SDRC_IDLE;
 		
@@ -1907,7 +1730,7 @@ begin
 		when SDRC_IDLE =>
 			if VCLKCNT = "001" then
 				if TG68_SDRAM_SEL = '1' and TG68_SDRAM_DTACK_N = '1' then
-					ram68k_req <= not ram68k_req;
+					ram68k_req_reg <= not ram68k_req_reg;
 					ram68k_a <= TG68_A(15 downto 1);
 					ram68k_d <= TG68_DO;
 					ram68k_we <= not TG68_RNW;
@@ -1915,7 +1738,7 @@ begin
 					ram68k_l_n <= TG68_LDS_N;
 					SDRC <= SDRC_TG68;
 				elsif T80_SDRAM_SEL = '1' and T80_SDRAM_DTACK_N = '1' then
-					ram68k_req <= not ram68k_req;
+					ram68k_req_reg <= not ram68k_req_reg;
 					ram68k_a <= BAR(15) & T80_A(14 downto 1);
 					ram68k_d <= T80_DO & T80_DO;
 					ram68k_we <= not T80_WR_N;
@@ -1923,7 +1746,7 @@ begin
 					ram68k_l_n <= not T80_A(0);
 					SDRC <= SDRC_T80;
 				elsif DMA_SDRAM_SEL = '1' and DMA_SDRAM_DTACK_N = '1' then
-					ram68k_req <= not ram68k_req;
+					ram68k_req_reg <= not ram68k_req_reg;
 					ram68k_a <= VBUS_ADDR(15 downto 1);
 					ram68k_we <= '0';
 					ram68k_u_n <= '0';
@@ -1933,14 +1756,14 @@ begin
 			end if;
 
 		when SDRC_TG68 =>
-			if ram68k_req = ram68k_ack then
+			if ram68k_req_reg = ram68k_ack then
 				TG68_SDRAM_D <= ram68k_q;
 				TG68_SDRAM_DTACK_N <= '0';
 				SDRC <= SDRC_IDLE;
 			end if;
 		
 		when SDRC_T80 =>
-			if ram68k_req = ram68k_ack then
+			if ram68k_req_reg = ram68k_ack then
 				if T80_A(0) = '0' then
 					T80_SDRAM_D <= ram68k_q(15 downto 8);
 				else
@@ -1951,7 +1774,7 @@ begin
 			end if;
 
 		when SDRC_DMA =>
-			if ram68k_req = ram68k_ack then
+			if ram68k_req_reg = ram68k_ack then
 				DMA_SDRAM_D <= ram68k_q;
 				DMA_SDRAM_DTACK_N <= '0';
 				SDRC <= SDRC_IDLE;
@@ -2052,152 +1875,6 @@ begin
 end process;
 
 
--- #############################################################################
--- #############################################################################
--- #############################################################################
-
--- Boot process
-
-FL_DQ<=boot_data;
-
-process( SDR_CLK )
-begin
-	if rising_edge( SDR_CLK ) then
-		if PRE_RESET_N = '0' then
-				
-			boot_req <='0';
-			
-			romwr_req <= '0';
-			romwr_a <= to_unsigned(0, 21);
-			bootState<=BOOT_READ_1;
-			
-		else
-			case bootState is 
-				when BOOT_READ_1 =>
-					boot_req<='1';
-					if boot_ack='1' then
-						boot_req<='0';
-						bootState <= BOOT_WRITE_1;
-					end if;
-					if host_bootdone='1' then
-						boot_req<='0';
-						bootState <= BOOT_DONE;
-					end if;
-				when BOOT_WRITE_1 =>
-					romwr_d <= FL_DQ;
-					romwr_req <= not romwr_req;
-					bootState <= BOOT_WRITE_2;
-				when BOOT_WRITE_2 =>
-					if romwr_req = romwr_ack then
-						romwr_a <= romwr_a + 1;
-						bootState <= BOOT_READ_1;
-					end if;
-				when others => null;
-			end case;	
-		end if;
-	end if;
-end process;
-
-
--- Control module:
-
-mycontrolmodule : entity work.CtrlModule
-	generic map (
-		sysclk_frequency => 1080 -- Sysclk frequency * 10
-	)
-	port map (
-		clk => SDR_CLK,
-		reset_n => reset,
-
-		-- SPI signals
-		spi_miso	=> spi_miso,
-		spi_mosi => spi_mosi,
-		spi_clk => spi_clk,
-		spi_cs => spi_cs,
-		
-		-- UART
-		rxd => RS232_RXD,
-		txd => RS232_TXD,
-		
-		-- DIP switches
-		dipswitches => SW,
-
-		-- PS2 keyboard
-		ps2k_clk_in => ps2k_clk_in,
-		ps2k_dat_in => ps2k_dat_in,
-		ps2k_clk_out => ps2k_clk_out,
-		ps2k_dat_out => ps2k_dat_out,
-		
-		-- Host control
-		host_reset_n => host_reset_n,
-		host_bootdone => host_bootdone,
-		
-		-- Host boot data
-		host_bootdata => boot_data,
-		host_bootdata_req => boot_req,
-		host_bootdata_ack => boot_ack,
-		rommap => rommap,
-		
-		-- Video signals for OSD
-		vga_hsync => vga_hsync_i,
-		vga_vsync => vga_vsync_i,
-		osd_window => osd_window,
-		osd_pixel => osd_pixel,
-		
-		vol_master => MASTER_VOLUME,
-		
-		-- Gamepad emulation
-		gp1emu => gp1emu,
-		gp2emu => gp2emu
-);
-
-
-overlay : entity work.OSD_Overlay
-	port map
-	(
-		clk => SDR_CLK,
-		red_in => vga_red_i,
-		green_in => vga_green_i,
-		blue_in => vga_blue_i,
-		window_in => '1',
-		osd_window_in => osd_window,
-		osd_pixel_in => osd_pixel,
-		hsync_in => vga_hsync_i,
-		red_out => VGA_R,
-		green_out => VGA_G,
-		blue_out => VGA_B,
-		window_out => open,
-		scanline_ena => SW(1)
-	);
-
--- Route VDP signals to outputs
-RED <= VDP_RED & VDP_RED;
-GREEN <= VDP_GREEN & VDP_GREEN;
-BLUE <= VDP_BLUE & VDP_BLUE;
-HS_N <= VDP_HS_N;
-VS_N <= VDP_VS_N;
-
-VGA_RED <= VDP_VGA_RED & VDP_VGA_RED;
-VGA_GREEN <= VDP_VGA_GREEN & VDP_VGA_GREEN;
-VGA_BLUE <= VDP_VGA_BLUE & VDP_VGA_BLUE;
-VGA_HS_N <= VDP_VGA_HS_N;
-VGA_VS_N <= VDP_VGA_VS_N;
-
--- Select between VGA and TV output	
-vga_red_i <= RED when SW(0)='1' else VGA_RED;
-vga_green_i <= GREEN when SW(0)='1' else VGA_GREEN;
-vga_blue_i <= BLUE when SW(0)='1' else VGA_BLUE;
-vga_hsync_i <= HS_N when SW(0)='1' else VGA_HS_N;
-vga_vsync_i <= VS_N when SW(0)='1' else VGA_VS_N;
-VGA_HS <= vga_hsync_i;
-VGA_VS <= vga_vsync_i;
-VID_15KHZ <= SW(0);
-
--- Audio control
-PSG_ENABLE <= not SW(3);
-FM_ENABLE <= not SW(4);
-FM_AMP_LEFT <= FM_LEFT when FM_ENABLE='1' else (others => '0');
-FM_AMP_RIGHT <= FM_RIGHT when FM_ENABLE='1' else (others => '0');
 
 -- #############################################################################
 -- #############################################################################
@@ -2217,7 +1894,7 @@ begin
 	if rising_edge( MCLK ) then
 
 		-- ROM ACCESS
-		if FC = FC_TG68_RD and romrd_req = romrd_ack then
+		if FC = FC_TG68_RD and romrd_req_reg = romrd_ack then
 			write(L, string'("68K "));
 			write(L, string'("RD"));
 			write(L, string'(" ROM     ["));
@@ -2258,7 +1935,7 @@ begin
 
 	
 		-- 68K RAM ACCESS
-		if SDRC = SDRC_TG68 and ram68k_req = ram68k_ack then
+		if SDRC = SDRC_TG68 and ram68k_req_reg = ram68k_ack then
 			write(L, string'("68K "));
 			if TG68_RNW = '0' then
 				write(L, string'("WR"));
