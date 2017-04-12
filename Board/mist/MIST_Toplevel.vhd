@@ -138,6 +138,10 @@ signal joy_ana_1: std_logic_vector(15 downto 0);
 signal txd:     std_logic;
 signal par_out_data: std_logic_vector(7 downto 0);
 signal par_out_strobe: std_logic;
+signal joya: std_logic_vector(7 downto 0);
+signal joyb: std_logic_vector(7 downto 0);
+signal joya_swap: std_logic_vector(7 downto 0);
+signal joyb_swap: std_logic_vector(7 downto 0);
 
 -- signals to connect sd card emulation with io controller
 signal sd_lba:  std_logic_vector(31 downto 0);
@@ -208,13 +212,12 @@ signal osd_pixel : std_logic;
 type romStates is (ROM_IDLE, ROM_READ);
 signal romState : romStates := ROM_IDLE;
 
-signal SW : std_logic_vector(15 downto 0);
-signal KEY : std_logic_vector(3 downto 0);
+signal MASTER_VOLUME : std_logic_vector(2 downto 0);
 
 signal gp1emu : std_logic_vector(7 downto 0);
 signal gp2emu : std_logic_vector(7 downto 0);
 
-signal MASTER_VOLUME : std_logic_vector(2 downto 0);
+signal SW : std_logic_vector(15 downto 0);
 
 -- Sigma Delta audio
 COMPONENT hybrid_pwm_sd
@@ -479,8 +482,8 @@ gen : entity work.gen_top
 		DAC_RDATA => audior,
 
 		-- Joystick ports (Port_A, Port_B)
-		JOY_1 => (others => '1'), -- TODO
-		JOY_2 => (others => '1'), -- TODO
+		JOY_1 => joya_swap,
+		JOY_2 => joyb_swap,
 		SW => SW
 );
 
@@ -745,6 +748,28 @@ vga_blue_i <= BLUE when SW(0)='1' else VGA_BLUE;
 vga_hsync_i <= HS_N when SW(0)='1' else VGA_HS_N;
 vga_vsync_i <= VS_N when SW(0)='1' else VGA_VS_N;
 
+-- Map joystick buttons
+joya(0) <= not joy_0(3) and gp1emu(0);
+joya(1) <= not joy_0(2) and gp1emu(1);
+joya(2) <= not joy_0(1) and gp1emu(2);
+joya(3) <= not joy_0(0) and gp1emu(3);
+joya(4) <= not joy_0(4) and gp1emu(4);
+joya(5) <= not joy_0(5) and gp1emu(5);
+joya(6) <= not joy_0(6) and gp1emu(6);
+joya(7) <= not joy_0(7) and gp1emu(7);
+
+joyb(0) <= not joy_1(3) and gp2emu(0);
+joyb(1) <= not joy_1(2) and gp2emu(1);
+joyb(2) <= not joy_1(1) and gp2emu(2);
+joyb(3) <= not joy_1(0) and gp2emu(3);
+joyb(4) <= not joy_1(4) and gp2emu(4);
+joyb(5) <= not joy_1(5) and gp2emu(5);
+joyb(6) <= not joy_1(6) and gp2emu(6);
+joyb(7) <= not joy_1(7) and gp2emu(7);
+
+-- Swap joysticks
+joya_swap <= joya when SW(2)='1' else joyb;
+joyb_swap <= joyb when SW(2)='1' else joya;
 
 -- #############################################################################
 -- #############################################################################
