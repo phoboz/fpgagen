@@ -120,6 +120,86 @@ wire           sdctl_rst;
 wire           rst_50;
 wire           rst_minimig;
 
+// "FLASH"
+reg romwr_req = 1'b0;
+wire romwr_ack;
+reg romwr_we = 1'b1;
+reg [21:1] romwr_a;
+wire [15:0] romwr_d;
+wire [15:0] romwr_q;
+
+wire romrd_req;
+wire romrd_ack;
+wire [21:3] romrd_a;
+wire [63:0] romrd_q;
+
+// 68000 RAM
+wire ram68k_req;
+wire ram68k_ack;
+wire ram68k_we;
+wire [15:1] ram68k_a;
+wire [15:0] ram68k_d;
+wire [15:0] ram68k_q;
+wire ram68k_l_n;
+wire ram68k_u_n;
+
+// VRAM
+wire vram_req;
+wire vram_ack;
+wire vram_we;
+wire [15:1] vram_a;
+wire [15:0] vram_d;
+wire [15:0] vram_q;
+wire vram_l_n;
+wire vram_u_n;
+
+// VDP Video Output
+wire [3:0] VDP_RED;
+wire [3:0] VDP_GREEN;
+wire [3:0] VDP_BLUE;
+wire VDP_VS_N;
+wire VDP_HS_N;
+
+wire [3:0] VDP_VGA_RED;
+wire [3:0] VDP_VGA_GREEN;
+wire [3:0] VDP_VGA_BLUE;
+wire VDP_VGA_VS_N;
+wire VDP_VGA_HS_N;
+
+// NTSC/RGB Video Output
+wire [7:0] RED;
+wire [7:0] GREEN;
+wire [7:0] BLUE;		
+wire VS_N;
+wire HS_N;
+
+// VGA Video Output
+wire [7:0] VGA_RED;
+wire [7:0] VGA_GREEN;
+wire [7:0] VGA_BLUE;		
+wire VGA_VS_N;
+wire VGA_HS_N;
+
+// current video signal (switchable between TV and VGA)
+wire [7:0] vga_red_i;
+wire [7:0] vga_green_i;
+wire [7:0] vga_blue_i;		
+wire vga_vsync_i;
+wire vga_hsync_i;
+wire [7:0] vga_red_o;
+wire [7:0] vga_green_o;
+wire [7:0] vga_blue_o;
+wire vga_window;
+
+wire [2:0] MASTER_VOLUME;
+
+wire SDR_INIT_DONE;
+wire PRE_RESET_N;
+
+////TODO
+
+wire host_bootdone;
+
 // ctrl
 wire           rom_status;
 wire           ram_status;
@@ -230,6 +310,10 @@ assign SRAM_DAT_R       = SRAM_DQ;
 assign FL_DQ            = FL_OE_N   ? FL_DAT_W   : 8'bzzzzzzzz;
 assign FL_DAT_R         = FL_DQ;
 
+// DRAM
+assign DRAM_CKE			= 1'b1;
+assign DRAM_CS_N			= 1'b0;
+
 // AUDIO
 assign AUDIOLEFT        = audio_left;
 assign AUDIORIGHT       = audio_right;
@@ -310,54 +394,111 @@ audio_top audio_top (
 
 
 
-defparam myvt.rowAddrBits = 12;
-defparam myvt.colAddrBits = 8;
+defparam sdr.rowAddrBits = 12;
+defparam sdr.colAddrBits = 8;
 
-Virtual_Toplevel myvt
+sdram_controller sdr
 (
-	.reset(SW[0]^!KEY[0]),
-	.MCLK(sysclk),
-	.SDR_CLK(memclk),
+	.clk(memclk),
 
-	.DRAM_ADDR(DRAM_ADDR),
-	.DRAM_DQ(DRAM_DQ),
-	.DRAM_BA_1(DRAM_BA_1),
-	.DRAM_BA_0(DRAM_BA_0),
-	.DRAM_CKE(DRAM_CKE),
-	.DRAM_UDQM(DRAM_UDQM),
-	.DRAM_LDQM(DRAM_LDQM),
-	.DRAM_CS_N(DRAM_CS_N),
-	.DRAM_WE_N(DRAM_WE_N),
-	.DRAM_CAS_N(DRAM_CAS_N),
-	.DRAM_RAS_N(DRAM_RAS_N),
+	.sd_data(DRAM_DQ),
+	.sd_addr(DRAM_ADDR),
+	.sd_we_n(DRAM_WE_N),
+	.sd_ras_n(DRAM_RAS_N),
+	.sd_cas_n(DRAM_CAS_N),
+	.sd_ba_0(DRAM_BA_0),
+	.sd_ba_1(DRAM_BA_1),
+	.sd_ldqm(DRAM_LDQM),
+	.sd_udqm(DRAM_UDQM),
+		
+	.romwr_req(romwr_req),
+	.romwr_ack(romwr_ack),
+	.romwr_we(romwr_we),
+	.romwr_a(romwr_a),
+	.romwr_d(romwr_d),
+	.romwr_q(romwr_q),
+
+	.romrd_req(romrd_req),
+	.romrd_ack(romrd_ack),
+	.romrd_a(romrd_a),
+	.romrd_q(romrd_q),
+
+	.ram68k_req(ram68k_req),
+	.ram68k_ack(ram68k_ack),
+	.ram68k_we(ram68k_we),
+	.ram68k_a(ram68k_a),
+	.ram68k_d(ram68k_d),
+	.ram68k_q(ram68k_q),
+	.ram68k_u_n(ram68k_u_n),
+	.ram68k_l_n(ram68k_l_n),
+
+	.vram_req(vram_req),
+	.vram_ack(vram_ack),
+	.vram_we(vram_we),
+	.vram_a(vram_a),
+	.vram_d(vram_d),
+	.vram_q(vram_q),
+	.vram_u_n(vram_u_n),
+	.vram_l_n(vram_l_n),
 	
+	.initDone(SDR_INIT_DONE)
+);
+
+gen_top gen
+(
+	.MRST_N(PRE_RESET_N),
+	.TG68_RES_N(PRE_RESET_N & host_bootdone),
+	.MCLK(sysclk),
+
+	// "FLASH"
+	.romrd_req(romrd_req),
+	.romrd_ack(romrd_ack),
+	.romrd_a(romrd_a),
+	.romrd_q(romrd_q),
+
+	// 68000 RAM
+	.ram68k_req(ram68k_req),
+	.ram68k_ack(ram68k_ack),
+	.ram68k_we(ram68k_we),
+	.ram68k_a(ram68k_a),
+	.ram68k_d(ram68k_d),
+	.ram68k_q(ram68k_q),
+	.ram68k_l_n(ram68k_l_n),
+	.ram68k_u_n(ram68k_u_n),
+
+	// VRAM
+	.vram_req(vram_req),
+	.vram_ack(vram_ack),
+	.vram_we(vram_we),
+	.vram_a(vram_a),
+	.vram_d(vram_d),
+	.vram_q(vram_q),
+	.vram_l_n(vram_l_n),
+	.vram_u_n(vram_u_n),
+	
+	// Video Output
+	.RED(VDP_RED),
+	.GREEN(VDP_GREEN),
+	.BLUE(VDP_BLUE),
+	.VS_N(VDP_VS_N),
+	.HS_N(VDP_HS_N),
+
+	.VGA_RED(VDP_VGA_RED),
+	.VGA_GREEN(VDP_VGA_GREEN),
+	.VGA_BLUE(VDP_VGA_BLUE),
+	.VGA_VS_N(VDP_VGA_VS_N),
+	.VGA_HS_N(VDP_VGA_HS_N),
+
+	// Audio
+	.MASTER_VOLUME(MASTER_VOLUME),
 	.DAC_LDATA(audio_left),
 	.DAC_RDATA(audio_right),
 	
-	.VGA_R(vga_red),
-	.VGA_G(vga_green),
-	.VGA_B(vga_blue),
-	.VGA_VS(VGA_VS),
-	.VGA_HS(VGA_HS),
-
-	.RS232_RXD(UART_RXD),
-	.RS232_TXD(UART_TXD),
-	
-	// PS/2
-	.ps2k_clk_in(PS2K_CLK_IN),
-	.ps2k_dat_in(PS2K_DAT_IN),
-	.ps2k_clk_out(PS2K_CLK_OUT),
-	.ps2k_dat_out(PS2K_DAT_OUT),
-	
 	// Joystick
-	.joya({2'b11,Joya[5:4],Joya[0],Joya[1],Joya[2],Joya[3]}),
-	.joyb({2'b11,Joyb[5:4],Joyb[0],Joyb[1],Joyb[2],Joyb[3]}),
-
-	// SD card
-	.spi_cs(SD_DAT3),
-	.spi_miso(SD_DAT),
-	.spi_mosi(SD_CMD),
-	.spi_clk(SD_CLK),
+	.JOY_1({2'b11,Joya[5:4],Joya[0],Joya[1],Joya[2],Joya[3]}),
+	.JOY_2({2'b11,Joyb[5:4],Joyb[0],Joyb[1],Joyb[2],Joyb[3]}),
+	
+	.SW(SW)
 );
 
 endmodule
