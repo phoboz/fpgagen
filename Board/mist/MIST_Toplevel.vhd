@@ -55,7 +55,7 @@ signal memclk      : std_logic;
 signal romwr_req : std_logic := '0';
 signal romwr_ack : std_logic;
 signal romwr_we  : std_logic := '1';
-signal romwr_a : unsigned(21 downto 1);
+signal romwr_a : std_logic_vector(21 downto 1);
 signal romwr_d : std_logic_vector(15 downto 0);
 signal romwr_q : std_logic_vector(15 downto 0);
 
@@ -401,7 +401,7 @@ sdc : entity work.sdram_controller
 	romwr_req	=> romwr_req,
 	romwr_ack	=> romwr_ack,
 	romwr_we 	=> romwr_we,
-	romwr_a		=> std_logic_vector(romwr_a),
+	romwr_a		=> romwr_a,
 	romwr_d		=> romwr_d,
 	romwr_q		=> romwr_q,
 	
@@ -607,51 +607,23 @@ rightsd: component hybrid_pwm_sd
 		dout => AUDIO_R
 	);
 
--- #############################################################################
--- #############################################################################
--- #############################################################################
+-- Rom loader
 
--- Boot process
+loader: entity work.rom_loader
+	port map (
+		reset_n	=>	PRE_RESET_N,
+		clk		=>	memclk,
+		
+		romwr_req	=> romwr_req,
+		romwr_ack	=> romwr_ack,
+		romwr_we		=> romwr_we,
+		romwr_a		=> romwr_a,
+		romwr_d		=> romwr_d,
 
-FL_DQ<=boot_data;
-
-process( memclk )
-begin
-	if rising_edge( memclk ) then
-		if PRE_RESET_N = '0' then
-				
-			boot_req <='0';
-			
-			romwr_req <= '0';
-			romwr_a <= to_unsigned(0, 21);
-			bootState<=BOOT_READ_1;
-			
-		else
-			case bootState is 
-				when BOOT_READ_1 =>
-					boot_req<='1';
-					if boot_ack='1' then
-						boot_req<='0';
-						bootState <= BOOT_WRITE_1;
-					end if;
-					if host_bootdone='1' then
-						boot_req<='0';
-						bootState <= BOOT_DONE;
-					end if;
-				when BOOT_WRITE_1 =>
-					romwr_d <= FL_DQ;
-					romwr_req <= not romwr_req;
-					bootState <= BOOT_WRITE_2;
-				when BOOT_WRITE_2 =>
-					if romwr_req = romwr_ack then
-						romwr_a <= romwr_a + 1;
-						bootState <= BOOT_READ_1;
-					end if;
-				when others => null;
-			end case;	
-		end if;
-	end if;
-end process;
+		boot_req			=> boot_req,
+		boot_ack			=> boot_ack,
+		host_bootdone	=> host_bootdone
+);
 
 
 -- Control module:
@@ -770,12 +742,5 @@ joyb(7) <= not joy_1(7) and gp2emu(7);
 -- Swap joysticks
 joya_swap <= joya when SW(2)='1' else joyb;
 joyb_swap <= joyb when SW(2)='1' else joya;
-
--- #############################################################################
--- #############################################################################
--- #############################################################################
--- #############################################################################
--- #############################################################################
--- #############################################################################
 
 end architecture;
