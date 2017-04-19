@@ -189,16 +189,6 @@ wire vga_hsync_i;
 wire [7:0] vga_red_o;
 wire [7:0] vga_green_o;
 wire [7:0] vga_blue_o;
-wire vga_window;
-
-wire [2:0] MASTER_VOLUME;
-
-wire SDR_INIT_DONE;
-wire PRE_RESET_N;
-
-////TODO
-
-wire host_bootdone;
 
 // ctrl
 wire           rom_status;
@@ -256,6 +246,7 @@ wire [  2-1:0] sdram_dqm;
 wire [  2-1:0] sdram_ba;
 
 // audio
+wire [2:0]		MASTER_VOLUME;
 wire           audio_lr_switch;
 wire           audio_lr_mix;
 
@@ -274,9 +265,30 @@ wire [  4-1:0] ctrl_status;
 // indicators
 wire [  8-1:0] track;
 
+wire SDR_INIT_DONE;
+wire PRE_RESET_N;
+
+wire host_reset_n;
+wire host_bootdone;
+wire [1:0] rommap;
+
+wire boot_req;
+wire boot_ack;
+
+wire osd_window;
+wire osd_pixel;
+
+wire [15:0] dipswitches;
+
+wire [7:0] gp1emu;
+wire [7:0] gp2emu;
+
 ////////////////////////////////////////
 // toplevel assignments               //
 ////////////////////////////////////////
+
+// Reset
+assign PRE_RESET_N = reset & SDR_INIT_DONE & host_reset_n;
 
 // PS/2 keyboard
 wire PS2K_DAT_IN=PS2_DAT;
@@ -330,18 +342,36 @@ assign pll_in_clk       = CLOCK_27;
 assign pll_rst          = !SW[0];
 assign sdctl_rst        = pll_locked & SW[0];
 
-wire [7:0] vga_red;
-wire [7:0] vga_green;
-wire [7:0] vga_blue;
+// Route VDP signals to outputs
+assign RED = {VDP_RED, VDP_RED};
+assign GREEN = {VDP_GREEN, VDP_GREEN};
+assign BLUE = {VDP_BLUE, VDP_BLUE};
+assign HS_N = VDP_HS_N;
+assign VS_N = VDP_VS_N;
+
+assign VGA_RED = {VDP_VGA_RED, VDP_VGA_RED};
+assign VGA_GREEN = {VDP_VGA_GREEN, VDP_VGA_GREEN};
+assign VGA_BLUE = {VDP_VGA_BLUE, VDP_VGA_BLUE};
+assign VGA_HS_N = VDP_VGA_HS_N;
+assign VGA_VS_N = VDP_VGA_VS_N;
+
+// Select between VGA and TV output	
+assign vga_red_i = SW[0] ? GREEN : VGA_RED;
+assign vga_green_i = SW[0] ? GREEN : VGA_GREEN;
+assign vga_blue_i = SW[0] ? BLUE : VGA_BLUE;
+assign vga_hsync_i = SW[0] ? HS_N : VGA_HS_N;
+assign vga_vsync_i = SW[0] ? VS_N : VGA_VS_N;
 
 // DE2 specific VGA wiring
-assign VGA_R = {vga_red[7:4], vga_red[7:4], vga_red[7:6]};
-assign VGA_G = {vga_green[7:4], vga_green[7:4], vga_green[7:6]};
-assign VGA_B = {vga_blue[7:4], vga_blue[7:4], vga_blue[7:6]};
+assign VGA_HS = SW[0] ? ~(vga_hsync_i ^ vga_vsync_i) : vga_hsync_i;
+assign VGA_VS = SW[0] ? 1'b1 : vga_vsync_i;
+assign VGA_R = {vga_red_o[7:4], vga_red_o[7:4], vga_red_o[7:6]};
+assign VGA_G = {vga_green_o[7:4], vga_green_o[7:4], vga_green_o[7:6]};
+assign VGA_B = {vga_blue_o[7:4], vga_blue_o[7:4], vga_blue_o[7:6]};
 assign VGA_BLANK = 1'b1; // (VGA_HS && VGA_VS);
 assign VGA_SYNC = 0;
-assign VGA_CLK = memclk; //DRAM_CLK;
- 
+assign VGA_CLK = memclk; //DRAM_CLK;//TODO?
+
 
 //// generated clocks ////
 
@@ -397,8 +427,7 @@ audio_top audio_top (
 defparam sdr.rowAddrBits = 12;
 defparam sdr.colAddrBits = 8;
 
-sdram_controller sdr
-(
+sdram_controller sdr(
 	.clk(memclk),
 
 	.sd_data(DRAM_DQ),
@@ -444,8 +473,7 @@ sdram_controller sdr
 	.initDone(SDR_INIT_DONE)
 );
 
-gen_top gen
-(
+gen_top gen(
 	.MRST_N(PRE_RESET_N),
 	.TG68_RES_N(PRE_RESET_N & host_bootdone),
 	.MCLK(sysclk),
@@ -498,7 +526,68 @@ gen_top gen
 	.JOY_1({2'b11,Joya[5:4],Joya[0],Joya[1],Joya[2],Joya[3]}),
 	.JOY_2({2'b11,Joyb[5:4],Joyb[0],Joyb[1],Joyb[2],Joyb[3]}),
 	
-	.SW(SW)
+	.SW(dipswitches)
+);
+
+// Rom loader
+
+rom_loader loader(
+	.reset_n(PRE_RESET_N),
+	.clk(memclk),
+		
+	.romwr_req(romwr_req),
+	.romwr_ack(romwr_ack),
+	.romwr_we(romwr_we),
+	.romwr_a(romwr_a),
+	.romwr_d(romwr_d),
+
+	.boot_req(boot_req),
+	.boot_ack(boot_ack),
+	.host_bootdone(host_bootdone)
+);
+
+// Control module
+
+defparam ctrl.sysclk_frequency = 1080; // Sysclk frequency * 10
+
+CtrlModule ctrl(
+	.clk(memclk),
+	.reset_n(reset), // TODO
+
+	// SPI signals
+	.spi_cs(SD_DAT3),
+	.spi_miso(SD_DAT),
+	.spi_mosi(SD_CMD),
+	.spi_clk(SD_CLK),
+		
+	// UART
+	.rxd(UART_RXD),
+	.txd(UART_TXD),
+		
+	// DIP switches
+	.dipswitches(dipswitches),
+
+	// PS/2
+	.ps2k_clk_in(PS2K_CLK_IN),
+	.ps2k_dat_in(PS2K_DAT_IN),
+	.ps2k_clk_out(PS2K_CLK_OUT),
+	.ps2k_dat_out(PS2K_DAT_OUT)
+);
+
+OSD_Overlay overlay(
+	.clk(memclk),
+	.red_in(vga_red_i),
+	.green_in(vga_green_i),
+	.blue_in(vga_blue_i),
+	.window_in(1'b1),
+	.osd_window_in(osd_window),
+	.osd_pixel_in(osd_pixel),
+	.hsync_in(vga_hsync_i),
+	.red_out(vga_red_o),
+	.green_out(vga_green_o),
+	.blue_out(vga_blue_o),
+	//.window_out(open),
+	.scanline_ena(dipswitches[1])
 );
 
 endmodule
