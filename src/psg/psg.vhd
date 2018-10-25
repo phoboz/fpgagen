@@ -10,6 +10,7 @@ use IEEE.NUMERIC_STD.ALL;
 entity psg is
 	port (	clk		: in  STD_LOGIC;
 			clken	: in  STD_LOGIC;
+			timing_clken	: in  STD_LOGIC;
 			WR_n	: in  STD_LOGIC;
 			D_in	: in  STD_LOGIC_VECTOR (7 downto 0);
 			output	: out STD_LOGIC_VECTOR(5 downto 0));
@@ -18,7 +19,7 @@ end entity;
 architecture rtl of psg is
 
 	signal clk_divide	: unsigned(4 downto 0) := "00000";
-	signal clk32		: std_logic;
+	signal en_32		: std_logic;
 	signal regn			: std_logic_vector(2 downto 0);
 	signal tone0		: std_logic_vector(9 downto 0):="0000100000";
 	signal tone1		: std_logic_vector(9 downto 0):="0000100000";
@@ -36,6 +37,7 @@ architecture rtl of psg is
 
 	component psg_tone is
    port (clk	: in  STD_LOGIC;
+			clken	: in	STD_LOGIC;
 			tone	: in  STD_LOGIC_VECTOR (9 downto 0);
 			volume: in  STD_LOGIC_VECTOR (3 downto 0);
 			output: out STD_LOGIC_VECTOR (3 downto 0));
@@ -43,6 +45,7 @@ architecture rtl of psg is
 
 	component psg_noise is
 	port (clk	: in  STD_LOGIC;
+			clken	: in	STD_LOGIC;
 			style	: in  STD_LOGIC_VECTOR (2 downto 0);
 			tone	: in  STD_LOGIC_VECTOR (9 downto 0);
 			volume: in  STD_LOGIC_VECTOR (3 downto 0);
@@ -53,28 +56,32 @@ begin
 
 	t0: psg_tone
 	port map (
-		clk		=> clk32,
+		clk		=> clk,
+		clken		=> en_32,
 		tone		=> tone0,
 		volume	=> volume0,
 		output	=> output0);
 		
 	t1: psg_tone
 	port map (
-		clk		=> clk32,
+		clk		=> clk,
+		clken		=> en_32,
 		tone		=> tone1,
 		volume	=> volume1,
 		output	=> output1);
 		
 	t2: psg_tone
 	port map (
-		clk		=> clk32,
+		clk		=> clk,
+		clken		=> en_32,
 		tone		=> tone2,
 		volume	=> volume2,
 		output	=> output2);
 
 	t3: psg_noise
 	port map(
-		clk		=> clk32,
+		clk		=> clk,
+		clken		=> en_32,
 		style		=> ctrl3,
 		tone		=> tone2,
 		volume	=> volume3,
@@ -82,18 +89,22 @@ begin
 		
 	process (clk)
 	begin
+	-- FIXME - reset?
 		if rising_edge(clk) then
-			if clken='1' then
+			en_32<='0';
+			if timing_clken='1' then
 				clk_divide <= clk_divide+1;
+				if clk_divide="10000" then
+					en_32<='1';
+				end if;
 			end if;
 		end if;
 	end process;
-	clk32 <= std_logic(clk_divide(4));
 
 	process (clk, WR_n)
 	begin
 		if rising_edge(clk) and WR_n='0' then
-			--if clken then
+			if clken='1' then
 				if D_in(7)='1' then
 					case D_in(6 downto 4) is
 						when "000" => tone0(3 downto 0) <= D_in(3 downto 0);
@@ -120,7 +131,7 @@ begin
 						when others =>
 					end case;
 				end if;
-			--end if;
+			end if;
 		end if;
 	end process;
 	

@@ -222,6 +222,9 @@ assign TDO              = 1'b1;
 // assign SD_DAT3          = SPI_CS_N[0];
 
 // SRAM
+assign SRAM_OE_N = 1'b0;
+assign SRAM_WE_N = 1'b1;
+assign SRAM_CE_N = 1'b1;
 assign SRAM_DQ          = SRAM_OE_N ? SRAM_DAT_W : 16'bzzzzzzzzzzzzzzzz;
 assign SRAM_DAT_R       = SRAM_DQ;
 
@@ -229,6 +232,8 @@ assign SRAM_DAT_R       = SRAM_DQ;
 // FLASH
 assign FL_DQ            = FL_OE_N   ? FL_DAT_W   : 8'bzzzzzzzz;
 assign FL_DAT_R         = FL_DQ;
+assign FL_OE_N = 1'b0;
+assign FL_CE_N = 1'b1;
 
 // AUDIO
 assign AUDIOLEFT        = audio_left;
@@ -269,22 +274,6 @@ pll mypll
 	.c2(DRAM_CLK)
 );
 
-
-// 7MHz
-reg [2-1:0] clk7_cnt;
-reg         clk7_en_reg;
-always @ (posedge clk_28, negedge pll_locked) begin
-  if (!pll_locked) begin
-    clk7_cnt <= 2'b10;
-    clk7_en_reg <= #1 1'b1;
-  end else begin
-    clk7_cnt <= clk7_cnt + 2'b01;
-    clk7_en_reg <= #1 ~|clk7_cnt;
-  end
-end
-
-assign clk_7 = clk7_cnt[1];
-assign clk7_en = clk7_en_reg;
  
 assign audio_lr_switch = 1'b0;
 assign audio_lr_mix = 1'b0;
@@ -312,6 +301,8 @@ audio_top audio_top (
 
 defparam myvt.rowAddrBits = 12;
 defparam myvt.colAddrBits = 8;
+defparam myvt.rasCasTiming = 3;
+defparam myvt.prechargeTiming = 3;
 
 Virtual_Toplevel myvt
 (
@@ -350,8 +341,8 @@ Virtual_Toplevel myvt
 	.ps2k_dat_out(PS2K_DAT_OUT),
 	
 	// Joystick
-	.joya({2'b11,Joya[5:4],Joya[0],Joya[1],Joya[2],Joya[3]}),
-	.joyb({2'b11,Joyb[5:4],Joyb[0],Joyb[1],Joyb[2],Joyb[3]}),
+	.joya(~{2'b11,Joya[5:4],Joya[0],Joya[1],Joya[2],Joya[3]}),
+	.joyb(~{2'b11,Joyb[5:4],Joyb[0],Joyb[1],Joyb[2],Joyb[3]}),
 
 	// SD card
 	.spi_cs(SD_DAT3),

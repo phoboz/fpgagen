@@ -28,7 +28,7 @@ begin
 	end
 	else
 	begin
-		pwmcounter<=pwmcounter+1;
+		pwmcounter<=pwmcounter+1'b1;
 
 		if(pwmcounter==pwmthreshold)
 			out<=1'b0;

@@ -41,13 +41,13 @@ set_global_assignment -name DEVICE EP3C25E144C8
 set_global_assignment -name TOP_LEVEL_ENTITY MIST_Toplevel
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION "12.0 SP1"
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "00:29:53  MAY 10, 2013"
-set_global_assignment -name LAST_QUARTUS_VERSION "13.0 SP1"
+set_global_assignment -name LAST_QUARTUS_VERSION 13.1
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 144
 set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 1
 set_global_assignment -name ENABLE_SIGNALTAP OFF
-set_global_assignment -name USE_SIGNALTAP_FILE stp2.stp
+set_global_assignment -name USE_SIGNALTAP_FILE scandoubler.stp
 set_location_assignment PIN_54 -to CLOCK_27[0]
 set_location_assignment PIN_55 -to CLOCK_27[1]
 set_location_assignment PIN_135 -to VGA_R[0]
@@ -82,7 +82,7 @@ set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_UDQM -section_id DRAM_O
 set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_WE_N -section_id DRAM_Other
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "NO HEAT SINK WITH STILL AIR"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
-set_global_assignment -name USE_CONFIGURATION_DEVICE ON
+set_global_assignment -name USE_CONFIGURATION_DEVICE OFF
 
 set_global_assignment -name SMART_RECOMPILE ON
 set_global_assignment -name CYCLONEII_RESERVE_NCEO_AFTER_CONFIGURATION "USE AS REGULAR IO"
@@ -175,8 +175,6 @@ set_global_assignment -name PHYSICAL_SYNTHESIS_COMBO_LOGIC ON
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
-set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to DRAM_*
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to DRAM_DQ*
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_A[12]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_A[11]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_A[10]
@@ -271,55 +269,77 @@ set_instance_assignment -name FAST_INPUT_REGISTER ON -to SDRAM_DQ[3]
 set_instance_assignment -name FAST_INPUT_REGISTER ON -to SDRAM_DQ[2]
 set_instance_assignment -name FAST_INPUT_REGISTER ON -to SDRAM_DQ[1]
 set_instance_assignment -name FAST_INPUT_REGISTER ON -to SDRAM_DQ[0]
+
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[0]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[1]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[2]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[3]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[4]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[5]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[6]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[7]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[8]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[9]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[10]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[11]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_A[12]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[0]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[1]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[2]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[3]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[4]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[5]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[6]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[7]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[8]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[9]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[10]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[11]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[12]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[13]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[14]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQ[15]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_BA[0]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_BA[1]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQML
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_DQMH
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_nRAS
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_nCAS
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_nWE
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_nCS
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_CKE
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_CLK
+
 set_global_assignment -name OPTIMIZE_HOLD_TIMING "ALL PATHS"
 set_global_assignment -name OPTIMIZE_MULTI_CORNER_TIMING ON
-set_global_assignment -name OPTIMIZE_POWER_DURING_FITTING "EXTRA EFFORT"
+set_global_assignment -name OPTIMIZE_POWER_DURING_FITTING OFF
 set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
 set_global_assignment -name ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM
 set_global_assignment -name ROUTER_CLOCKING_TOPOLOGY_ANALYSIS ON
-set_global_assignment -name OPTIMIZE_POWER_DURING_SYNTHESIS "EXTRA EFFORT"
+set_global_assignment -name OPTIMIZE_POWER_DURING_SYNTHESIS OFF
 set_global_assignment -name SEED 2
-set_global_assignment -name VERILOG_FILE ../../Board/mist/fastfilter.v
-set_global_assignment -name VHDL_FILE ../../Board/mist/DualPortDualClockRAM.vhd
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_interpol.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_mixer.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_fir.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_fir4.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_sumch.v
+set_instance_assignment -name FAST_INPUT_REGISTER ON -to SDRAM_DQ[*]
+set_location_assignment PLL_1 -to "pll:U00|altpll:altpll_component|pll_altpll:auto_generated"
+set_global_assignment -name ENABLE_CONFIGURATION_PINS OFF
+set_global_assignment -name ENABLE_NCE_PIN OFF
+set_global_assignment -name ENABLE_BOOT_SEL_PIN OFF
+set_global_assignment -name CYCLONEIII_CONFIGURATION_SCHEME "PASSIVE SERIAL"
+set_global_assignment -name FORCE_CONFIGURATION_VCCIO ON
+set_global_assignment -name QIP_FILE ../../src/T80/T80.qip
+set_global_assignment -name VHDL_FILE ../../../Board/mist/MIST_Toplevel.vhd
+set_global_assignment -name SYSTEMVERILOG_FILE ../../Board/mist/rgb2ypbpr.sv
+set_global_assignment -name VERILOG_FILE ../../Board/mist/data_io.v
+set_global_assignment -name VERILOG_FILE ../../../Board/mist/user_io.v
+set_global_assignment -name VERILOG_FILE ../../../Board/mist/osd.v
+set_global_assignment -name VERILOG_FILE ../../Board/mist/hybrid_pwm_sd.v
+set_global_assignment -name VERILOG_FILE ../../Board/mist/scandoubler.v
 set_global_assignment -name VHDL_FILE ../../src/psg/psg_tone.vhd
 set_global_assignment -name VHDL_FILE ../../src/psg/psg_noise.vhd
 set_global_assignment -name VHDL_FILE ../../src/psg/psg.vhd
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_amp.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_acc.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_clk.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_clksync.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_kon.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_fm.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_eg.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_mmr.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_op.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_mod24.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_opsync.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_lfo.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_mod6.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_pg.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_reg.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_sh.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_sh_rst.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_timers.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_sh6_rst.v
-set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_sh24.v
+set_global_assignment -name VHDL_FILE ../../src/TG68KdotC_Kernel.vhd
+set_global_assignment -name VHDL_FILE ../../src/TG68K_Pack.vhd
+set_global_assignment -name VHDL_FILE ../../src/TG68K_ALU.vhd
 set_global_assignment -name VHDL_FILE ../../src/virtual_toplevel.vhd
-set_global_assignment -name VHDL_FILE ../../src/video_vga_dither.vhd
-set_global_assignment -name VHDL_FILE ../../src/T80/T80se.vhd
-set_global_assignment -name VHDL_FILE ../../src/T80/T80_Reg.vhd
-set_global_assignment -name VHDL_FILE ../../src/T80/T80_Pack.vhd
-set_global_assignment -name VHDL_FILE ../../src/T80/T80_MCode.vhd
-set_global_assignment -name VHDL_FILE ../../src/T80/T80_ALU.vhd
-set_global_assignment -name VHDL_FILE ../../src/T80/T80.vhd
-set_global_assignment -name VHDL_FILE ../../src/TG68_fast.vhd
-set_global_assignment -name VHDL_FILE ../../src/TG68.vhd
 set_global_assignment -name VHDL_FILE ../../src/vdp_common.vhd
 set_global_assignment -name VHDL_FILE ../../src/vdp.vhd
 set_global_assignment -name VHDL_FILE ../../src/sdram_controller.vhd
@@ -327,35 +347,14 @@ set_global_assignment -name VHDL_FILE ../../src/os_rom.vhd
 set_global_assignment -name VHDL_FILE ../../src/gen_io.vhd
 set_global_assignment -name VHDL_FILE ../../src/gen_fm.vhd
 set_global_assignment -name VHDL_FILE ../../src/chameleon_gen_sdram.vhd
-set_global_assignment -name VHDL_FILE ../../src/vdp_colinfo.vhd
-set_global_assignment -name VHDL_FILE ../../src/vdp_objinfo.vhd
 set_global_assignment -name VHDL_FILE ../../src/zram.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/OnScreenDisplay.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/OSD_Overlay.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/DualPortRAM_2Read_Unreg.vhd
-set_global_assignment -name VERILOG_FILE ../../../Board/mist/user_io.v
-set_global_assignment -name VERILOG_FILE ../../../Board/mist/sd_card.v
-set_global_assignment -name VERILOG_FILE ../../../Board/mist/osd.v
-set_global_assignment -name VERILOG_FILE ../../Board/mist/hybrid_pwm_sd.v
-set_global_assignment -name VERILOG_FILE ../../../Board/mist/mist_console.v
-set_global_assignment -name VHDL_FILE ../../../Board/mist/MIST_Toplevel.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/spi.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/simple_uart.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/io_ps2_com.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/interrupt_controller.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/CtrlModule.vhd
-set_global_assignment -name VHDL_FILE ../../ZPUFlex/RTL/zpupkg.vhd
-set_global_assignment -name VHDL_FILE ../../ZPUFlex/RTL/zpu_core_flex.vhd
-set_global_assignment -name VHDL_FILE ../../Firmware/CtrlROM/CtrlROM_ROM.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/CharROM/CharROM_ROM.vhd
-set_global_assignment -name SDC_FILE ../../Board/mist/constraints.sdc
-set_global_assignment -name VHDL_FILE ../../Firmware/CtrlROM/CtrlROM_ROM2.vhd
-set_global_assignment -name VHDL_FILE ../../Firmware/CtrlROM/CtrlROM_ROM1.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/MergeROM.vhd
-set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/CtrlROM.vhd
 set_global_assignment -name QIP_FILE ../../Board/mist/pll.qip
 set_global_assignment -name SIGNALTAP_FILE stp2.stp
-set_global_assignment -name SOURCE_FILE db/fpgagen.cmp.rdb
-set_global_assignment -name QIP_FILE ../../Board/mist/SPIRecoveryClock.qip
-set_global_assignment -name SLD_FILE /home/amr/FPGA/Projects/fpgagen/syn/mist/stp2_auto_stripped.stp
+set_global_assignment -name VERILOG_FILE ../../src/TwoWayCache.v
+set_global_assignment -name VHDL_FILE ../../src/DualPortRAM.vhd
+set_global_assignment -name QIP_FILE ../../jt12/hdl/jt12.qip
+set_global_assignment -name SDC_FILE ../../Board/mist/constraints.sdc
+set_global_assignment -name CDF_FILE Chain1.cdf
+set_global_assignment -name SIGNALTAP_FILE stp1.stp
+set_global_assignment -name SIGNALTAP_FILE scandoubler.stp
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

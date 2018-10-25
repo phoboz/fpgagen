@@ -38,7 +38,7 @@ set_time_format -unit ns -decimal_places 3
 # Create Clock
 #**************************************************************
 
-create_clock -name {clk_50} -period 20.000 -waveform { 0.000 0.500 } [get_ports {CLOCK_50}]
+create_clock -name {clk_27} -period 37.000 -waveform { 0.000 0.500 } [get_ports {CLOCK_27}]
 
 
 #**************************************************************
@@ -46,7 +46,7 @@ create_clock -name {clk_50} -period 20.000 -waveform { 0.000 0.500 } [get_ports 
 #**************************************************************
 
 derive_pll_clocks 
-create_generated_clock -name sd1clk_pin -source [get_pins {mypll|altpll_component|pll|clk[1]}] [get_ports {DRAM_CLK}]
+create_generated_clock -name sd1clk_pin -source [get_pins {mypll|altpll_component|pll|clk[2]}] [get_ports {DRAM_CLK}]
 create_generated_clock -name sysclock -source [get_pins {mypll|altpll_component|pll|clk[0]}]
 
 #**************************************************************
@@ -112,10 +112,9 @@ set_false_path -to {UART_TXD}
 # Set Multicycle Path
 #**************************************************************
 
-#set_multicycle_path -from [get_clocks {mypll|altpll_component|auto_generated|pll1|clk[0]}] -to [get_clocks {sd2clk_pin}] -setup -end 2
-#set_multicycle_path -from [get_clocks {mypll2|altpll_component|auto_generated|pll1|clk[0]}] -to [get_clocks {sd2clk_pin}] -setup -end 2
-
-set_multicycle_path -from [get_clocks {sd1clk_pin}] -to [get_clocks {mypll|altpll_component|pll|clk[0]}] -setup -end 2
+#set_multicycle_path -from [get_clocks {mypll|altpll_component|pll|clk[1]}] -to [get_clocks {sd1clk_pin}] -setup -end 2
+#set_multicycle_path -from [get_clocks {mypll|altpll_component|pll|clk[1]}] -to [get_clocks {sd1clk_pin}] -setup -end 2
+set_multicycle_path -from [get_clocks {sd1clk_pin}] -to [get_clocks {mypll|altpll_component|pll|clk[1]}] -setup -end 2
 
 #**************************************************************
 # Set Maximum Delay

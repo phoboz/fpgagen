@@ -451,6 +451,16 @@ int main(int argc,char **argv)
 
 	HW_HOST(HW_HOST_MOUSEBUTTONS)=3;
 
+	PS2Init();
+	EnableInterrupts();
+	PS2Wait();
+	PS2Wait();
+	OSD_Clear();
+	OSD_Show(1);	// Figure out sync polarity
+	PS2Wait();
+	PS2Wait();
+	OSD_Show(1);	// OSD should now show correctly.
+
 	OSD_Puts("Initializing SD card\n");
 	i=5;
 	while(--i>0)
@@ -464,16 +474,6 @@ int main(int argc,char **argv)
 		OSD_Puts("Card init failed\n");
 		return(0);
 	}
-
-	PS2Init();
-	EnableInterrupts();
-	PS2Wait();
-	PS2Wait();
-	OSD_Clear();
-	OSD_Show(1);	// Figure out sync polarity
-	PS2Wait();
-	PS2Wait();
-	OSD_Show(1);	// OSD should now show correctly.
 
 	LoadSettings();
 

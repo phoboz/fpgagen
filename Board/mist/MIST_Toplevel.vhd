@@ -34,9 +34,9 @@ entity MIST_Toplevel is
 
 		VGA_HS		:	buffer STD_LOGIC;
 		VGA_VS		:	buffer STD_LOGIC;
-		VGA_R		:	 out unsigned(5 downto 0);
-		VGA_G		:	 out unsigned(5 downto 0);
-		VGA_B		:	 out unsigned(5 downto 0);
+		VGA_R		:	out std_logic_vector(5 downto 0);
+		VGA_G		:	out std_logic_vector(5 downto 0);
+		VGA_B		:	out std_logic_vector(5 downto 0);
 
 		AUDIO_L : out std_logic;
 		AUDIO_R : out std_logic
@@ -54,86 +54,84 @@ signal memclk      : std_logic;
 signal audiol : std_logic_vector(15 downto 0);
 signal audior : std_logic_vector(15 downto 0);
 
-signal vga_tred : unsigned(7 downto 0);
-signal vga_tgreen : unsigned(7 downto 0);
-signal vga_tblue : unsigned(7 downto 0);
-signal vga_ths		: std_logic;
-signal vga_tvs		: std_logic;
-signal vga_window : std_logic;
-signal vid_15khz	: std_logic;
+signal gen_red      : std_logic_vector(3 downto 0);
+signal gen_green    : std_logic_vector(3 downto 0);
+signal gen_blue     : std_logic_vector(3 downto 0);
+signal gen_hs		: std_logic;
+signal gen_vs		: std_logic;
+
+signal sd_r         : std_logic_vector(5 downto 0);
+signal sd_g         : std_logic_vector(5 downto 0);
+signal sd_b         : std_logic_vector(5 downto 0);
+signal sd_hs		: std_logic;
+signal sd_vs		: std_logic;
+-- 
+signal osd_red_i    : std_logic_vector(5 downto 0);
+signal osd_green_i  : std_logic_vector(5 downto 0);
+signal osd_blue_i   : std_logic_vector(5 downto 0);
+signal osd_vs_i     : std_logic;
+signal osd_hs_i     : std_logic;
+signal osd_red_o : std_logic_vector(5 downto 0);
+signal osd_green_o : std_logic_vector(5 downto 0);
+signal osd_blue_o : std_logic_vector(5 downto 0);
+signal vga_y_o : std_logic_vector(5 downto 0);
+signal vga_pb_o : std_logic_vector(5 downto 0);
+signal vga_pr_o : std_logic_vector(5 downto 0);
 
 -- user_io
 signal buttons: std_logic_vector(1 downto 0);
-signal status:  std_logic_vector(7 downto 0);
-signal joy_0: std_logic_vector(7 downto 0);
-signal joy_1: std_logic_vector(7 downto 0);
-signal joy_2: std_logic_vector(7 downto 0);
-signal joy_3: std_logic_vector(7 downto 0);
-signal joy_4: std_logic_vector(7 downto 0);
-signal joy_ana_0: std_logic_vector(15 downto 0);
-signal joy_ana_1: std_logic_vector(15 downto 0);
+signal status:  std_logic_vector(31 downto 0);
+signal joy_0: std_logic_vector(31 downto 0);
+signal joy_1: std_logic_vector(31 downto 0);
 signal txd:     std_logic;
 signal par_out_data: std_logic_vector(7 downto 0);
 signal par_out_strobe: std_logic;
+signal ypbpr: std_logic;
+signal scandoubler_disable: std_logic;
 
--- signals to connect sd card emulation with io controller
-signal sd_lba:  std_logic_vector(31 downto 0);
-signal sd_rd:   std_logic;
-signal sd_wr:   std_logic;
-signal sd_ack:  std_logic;
-signal sd_conf: std_logic;
-signal sd_sdhc: std_logic;
-signal sd_allow_sdhc: std_logic;
-signal sd_allow_sdhcD: std_logic;
-signal sd_allow_sdhcD2: std_logic;
-signal sd_allow_sdhc_changed: std_logic;
--- data from io controller to sd card emulation
-signal sd_data_in: std_logic_vector(7 downto 0);
-signal sd_data_in_strobe:  std_logic;
-signal sd_data_out: std_logic_vector(7 downto 0);
-signal sd_data_out_strobe:  std_logic;
+-- data_io
+signal downloading      : std_logic;
+signal data_io_wr       : std_logic;
+signal data_io_clkref   : std_logic;
+signal data_io_d        : std_logic_vector(7 downto 0);
+signal downloadingD     : std_logic;
+signal d_state          : std_logic_vector(1 downto 0);
 
--- sd card emulation
-signal sd_cs:	std_logic;
-signal sd_sck:	std_logic;
-signal sd_sdi:	std_logic;
-signal sd_sdo:	std_logic;
+-- external controller signals
+signal ext_reset_n      : std_logic_vector(2 downto 0) := "111";
+signal ext_bootdone     : std_logic_vector(2 downto 0) := "000";
+signal ext_data         : std_logic_vector(15 downto 0);
+signal ext_data_req     : std_logic;
+signal ext_data_ack     : std_logic := '0';
+signal ext_sw           : std_logic_vector( 15 downto 0); --DIP switches
+signal core_led         : std_logic;
 
--- PS/2
-signal ps2_clk : std_logic;
-signal ps2counter : unsigned(10 downto 0);
+constant CONF_STR : string :=
+    "GENESIS;BINGENMD ;"&
+    "O7,Display,NTSC,PAL;"&
+    "OBC,Scanlines,Off,25%,50%,75%;"&
+    "O6,Joystick swap,Off,On;"&
+    "O9,Swap Y axis,Off,On;"&
+    "OA,Only 3 buttons,Off,On;"&
+    "O4,FM Sound,Enable,Disable;"&
+    "O5,PSG Sound,Enable,Disable;"&
+    "O8,Model,Export,Domestic;"&
+    "T0,Reset;";
 
--- PS/2 Keyboard
-signal ps2_keyboard_clk_in : std_logic;
-signal ps2_keyboard_dat_in : std_logic;
-signal ps2_keyboard_clk_mix : std_logic;
-signal ps2_keyboard_clk_out : std_logic;
-signal ps2_keyboard_dat_out : std_logic;
-
--- PS/2 Mouse
-signal ps2_mouse_clk_in : std_logic;
-signal ps2_mouse_dat_in : std_logic;
-signal ps2_mouse_clk_mix : std_logic;
-signal ps2_mouse_clk_out : std_logic;
-signal ps2_mouse_dat_out : std_logic;
-
--- spi clock recovery
-signal spirecoveryclock : std_logic;  -- High frequency clock
-signal uc_sysclk : std_logic;
-signal spisck_d : std_logic;
-signal spirec : std_logic;
-signal spirecoveredclock : std_logic;
-signal pll2_locked : std_logic;
-
--- Fast filter for SPI clock conditioning
-COMPONENT fastfilter
-	PORT
-	(
-		recoveryclock	: IN STD_LOGIC;
-		d	:	IN STD_LOGIC;
-		q	:	out STD_LOGIC
-	);
-END COMPONENT;
+-- convert string to std_logic_vector to be given to user_io
+function to_slv(s: string) return std_logic_vector is
+  constant ss: string(1 to s'length) := s;
+  variable rval: std_logic_vector(1 to 8 * s'length);
+  variable p: integer;
+  variable c: integer;
+begin
+  for i in ss'range loop
+    p := 8 * i;
+    c := character'pos(ss(i));
+    rval(p - 7 to p) := std_logic_vector(to_unsigned(c,8));
+  end loop;
+  return rval;
+end function;
 
 -- Sigma Delta audio
 COMPONENT hybrid_pwm_sd
@@ -146,124 +144,109 @@ COMPONENT hybrid_pwm_sd
 	);
 END COMPONENT;
 
-COMPONENT video_vga_dither
-	GENERIC ( outbits : INTEGER := 4 );
+-- 
+COMPONENT rgb2ypbpr
 	PORT
 	(
-		clk		:	 IN STD_LOGIC;
-		hsync		:	 IN STD_LOGIC;
-		vsync		:	 IN STD_LOGIC;
-		vid_ena		:	 IN STD_LOGIC;
-		iRed		:	 IN UNSIGNED(7 DOWNTO 0);
-		iGreen		:	 IN UNSIGNED(7 DOWNTO 0);
-		iBlue		:	 IN UNSIGNED(7 DOWNTO 0);
-		oRed		:	 OUT UNSIGNED(outbits-1 DOWNTO 0);
-		oGreen		:	 OUT UNSIGNED(outbits-1 DOWNTO 0);
-		oBlue		:	 OUT UNSIGNED(outbits-1 DOWNTO 0)
+        red     :	 IN std_logic_vector(5 DOWNTO 0);
+        green   :	 IN std_logic_vector(5 DOWNTO 0);
+        blue    :	 IN std_logic_vector(5 DOWNTO 0);
+        y       :	 OUT std_logic_vector(5 DOWNTO 0);
+        pb      :	 OUT std_logic_vector(5 DOWNTO 0);
+        pr      :	 OUT std_logic_vector(5 DOWNTO 0)
 	);
 END COMPONENT;
-  
 
 component user_io 
 	generic ( STRLEN : integer := 0 );
    port (
-			  SPI_CLK, SPI_SS_IO, SPI_MOSI :in std_logic;
-           SPI_MISO : out std_logic;
-           conf_str : in std_logic_vector(8*STRLEN-1 downto 0);
-           joystick_0 : out std_logic_vector(7 downto 0);
-           joystick_1 : out std_logic_vector(7 downto 0);
-           joystick_2 : out std_logic_vector(7 downto 0);
-           joystick_3 : out std_logic_vector(7 downto 0);
-           joystick_4 : out std_logic_vector(7 downto 0);
-           joystick_analog_0 : out std_logic_vector(15 downto 0);
-           joystick_analog_1 : out std_logic_vector(15 downto 0);
-           status: out std_logic_vector(7 downto 0);
-           switches : out std_logic_vector(1 downto 0);
-           buttons : out std_logic_vector(1 downto 0);
-			  sd_lba : in std_logic_vector(31 downto 0);
-			  sd_rd : in std_logic;
-			  sd_wr : in std_logic;
-			  sd_ack : out std_logic;
-			  sd_conf : in std_logic;
-			  sd_sdhc : in std_logic;
-			  sd_dout : out std_logic_vector(7 downto 0);
-			  sd_dout_strobe : out std_logic;
-			  sd_din : in std_logic_vector(7 downto 0);
-			  sd_din_strobe : out std_logic;
-           ps2_clk : in std_logic;
-           ps2_kbd_clk : out std_logic;
-           ps2_kbd_data : out std_logic;
-           ps2_mouse_clk : out std_logic;
-           ps2_mouse_data : out std_logic;
-			  serial_data : in std_logic_vector(7 downto 0);
-           serial_strobe : in std_logic
+        clk_sys : in std_logic;
+        clk_sd  : in std_logic;
+        SPI_CLK, SPI_SS_IO, SPI_MOSI :in std_logic;
+        SPI_MISO : out std_logic;
+        conf_str : in std_logic_vector(8*STRLEN-1 downto 0);
+        joystick_0 : out std_logic_vector(31 downto 0);
+        joystick_1 : out std_logic_vector(31 downto 0);
+        joystick_analog_0 : out std_logic_vector(15 downto 0);
+        joystick_analog_1 : out std_logic_vector(15 downto 0);
+        status: out std_logic_vector(31 downto 0);
+        switches : out std_logic_vector(1 downto 0);
+        buttons : out std_logic_vector(1 downto 0);
+        scandoubler_disable: out std_logic;
+        ypbpr: out std_logic;
+        ps2_kbd_clk : out std_logic;
+        ps2_kbd_data : out std_logic;
+        ps2_mouse_clk : out std_logic;
+        ps2_mouse_data : out std_logic;
+        serial_data : in std_logic_vector(7 downto 0);
+        serial_strobe : in std_logic
       );
   end component user_io;
-  
-component mist_console
-	generic ( CLKFREQ : integer := 100 );
-   port (  clk 	:	in std_logic;
-           n_reset:	in std_logic;
-           ser_in :	in std_logic;
-           par_out_data :	out std_logic_vector(7 downto 0);
-           par_out_strobe :	out std_logic
-  );
-  end component mist_console;
 
-component sd_card
-   port (
-			  spiclk : in std_logic;
-			  fpga_sysclk : in std_logic;
-			  uc_sysclk : in std_logic;
-			  io_lba 	: out std_logic_vector(31 downto 0);
-			  io_rd  	: out std_logic;
-			  io_wr  	: out std_logic;
-			  io_ack 	: in std_logic;
-			  io_sdhc 	: out std_logic;
-			  io_conf 	: out std_logic;
-			  io_din 	: in std_logic_vector(7 downto 0);
-			  io_din_strobe : in std_logic;
-			  io_dout 	: out std_logic_vector(7 downto 0);
-			  io_dout_strobe : in std_logic;
+component data_io
+    port (  clk         : in std_logic;
+            clkref      : in std_logic;
+            wr          : out std_logic;
+            a           : out std_logic_vector(24 downto 0);
+            d           : out std_logic_vector(7 downto 0);
+            downloading : out std_logic;
+            index       : out std_logic_vector(7 downto 0);
 
-			  allow_sdhc : in std_logic;
-			  
-           sd_cs 		:	in std_logic;
-           sd_sck 	:	in std_logic;
-           sd_sdi 	:	in std_logic;
-           sd_sdo 	:	out std_logic
-  );
-  end component sd_card;
+            sck         : in std_logic;
+            ss          : in std_logic;
+            sdi         : in std_logic
+        );
+    end component data_io;
 
+component scandoubler
+    port (
+            clk_sys     : in std_logic;
+            scanlines   : in std_logic_vector(1 downto 0);
+
+            hs_in       : in std_logic;
+            vs_in       : in std_logic;
+            r_in        : in std_logic_vector(3 downto 0);
+            g_in        : in std_logic_vector(3 downto 0);
+            b_in        : in std_logic_vector(3 downto 0);
+
+            hs_out      : out std_logic;
+            vs_out      : out std_logic;
+            r_out       : out std_logic_vector(5 downto 0);
+            g_out       : out std_logic_vector(5 downto 0);
+            b_out       : out std_logic_vector(5 downto 0)
+        );
+end component scandoubler;
+
+component osd
+ 	 generic ( OSD_COLOR : integer := 1 );  -- blue
+    port (  clk_sys     : in std_logic;
+
+            R_in        : in std_logic_vector(5 downto 0);
+            G_in        : in std_logic_vector(5 downto 0);
+            B_in        : in std_logic_vector(5 downto 0);
+            HSync       : in std_logic;
+            VSync       : in std_logic;
+
+            R_out       : out std_logic_vector(5 downto 0);
+            G_out       : out std_logic_vector(5 downto 0);
+            B_out       : out std_logic_vector(5 downto 0);
+
+            SPI_SCK     : in std_logic;
+            SPI_SS3     : in std_logic;
+            SPI_DI      : in std_logic
+        );
+    end component osd;
+	
 begin
 
+LED <= core_led and not downloading;
 
-myrecoveryclock : entity work.SPIRecoveryClock
-port map
-(
-	inclk0 => CLOCK_27(0),
-	c0 => spirecoveryclock,
-	c1 => uc_sysclk,
-	locked => pll2_locked
-);
-
-myclockfilter : component fastfilter
-port map
-(
-	recoveryclock => spirecoveryclock,
-	d => SPI_SCK,
-	q => spirecoveredclock
-);
-
-
-
-  U00 : entity work.pll
+U00 : entity work.pll
     port map(
-      inclk0 => CLOCK_27(0),	-- 27 MHz external
-      c0     => MCLK,			-- 54 MHz internal
-		c1     => open,
-      c2     => memclk,			-- 108 Mhz
-      c3     => SDRAM_CLK,		-- 108 Mhz external
+        inclk0 => CLOCK_27(0),	-- 27 MHz external
+        c0     => MCLK,			-- 54 MHz internal
+        c2     => memclk,			-- 108 Mhz
+        c3     => SDRAM_CLK,		-- 108 Mhz external
 		locked => pll_locked
     );
 
@@ -277,28 +260,25 @@ port map
 process(MCLK)
 begin
 	if rising_edge(MCLK) then
-		reset_d<=not (status(0) or status(2) or buttons(1)) and pll_locked and pll2_locked;
+		reset_d<=not (status(0) or status(2) or buttons(1)) and pll_locked;
 		reset<=reset_d;
 	end if;
 end process;
 
--- MCLK?
-process(MCLK)
-begin
---	ps2_keyboard_clk_mix <= ps2_keyboard_clk_in and (ps2_clk or ps2_keyboard_dat_out);
-	ps2_keyboard_clk_mix <= ps2_keyboard_clk_in; -- and (ps2_clk or ps2_keyboard_dat_out);
-	ps2_mouse_clk_mix <= ps2_mouse_clk_in; -- and (ps2_clk or ps2_mouse_dat_out);
-	if rising_edge(MCLK) then
-		ps2counter<=ps2counter+1;
-		if ps2counter=1200 then
-			ps2_clk<=not ps2_clk;
-			ps2counter<=(others => '0');
-		end if;
-	end if;
-end process;
+ext_sw(2) <= status(6); --joy swap
+ext_sw(3) <= status(5); --psg en
+ext_sw(4) <= status(4); --fm en
+ext_sw(5) <= status(7); --PAL
+ext_sw(6) <= not status(8); --model
+ext_sw(7) <= status(9); --swap Y
+ext_sw(8) <= status(10); --3 buttons
 
 --SDRAM_A(12)<='0';
 virtualtoplevel : entity work.Virtual_Toplevel
+	generic map(
+		rasCasTiming => 3,
+		prechargeTiming => 3
+	)
 	port map(
 		reset => reset,
 		MCLK => MCLK,
@@ -318,143 +298,180 @@ virtualtoplevel : entity work.Virtual_Toplevel
     DRAM_ADDR => SDRAM_A,
     DRAM_DQ => SDRAM_DQ,
 
-    -- PS/2 keyboard ports
-	 ps2k_clk_out => ps2_keyboard_clk_out,
-	 ps2k_dat_out => ps2_keyboard_dat_out,
-	 ps2k_clk_in => ps2_keyboard_clk_in,
-	 ps2k_dat_in => ps2_keyboard_dat_in,
- 
 --    -- Joystick ports (Port_A, Port_B)
-	joya => joy_1,
-	joyb => joy_0,
-
-    -- SD/MMC slot ports
-	spi_clk => sd_sck,
-	spi_mosi => sd_sdi,
-	spi_cs => sd_cs,
-	spi_miso => sd_sdo,
+	joya => joy_1(11 downto 0),
+	joyb => joy_0(11 downto 0),
 
 	-- Video, Audio/CMT ports
-    unsigned(VGA_R) => vga_tred,
-    unsigned(VGA_G) => vga_tgreen,
-    unsigned(VGA_B) => vga_tblue,
+    RED => gen_red,
+    GREEN => gen_green,
+    BLUE => gen_blue,
 
-    VGA_HS => vga_ths,
-    VGA_VS => vga_tvs,
-	 VID_15KHZ => vid_15khz,
+    HS => gen_hs,
+    VS => gen_vs,
 	 
-	 LED => LED,
+    LED => core_led,
 
-	 DAC_LDATA => audiol,
-	 DAC_RDATA => audior,
+    DAC_LDATA => audiol,
+    DAC_RDATA => audior,
 	 
-	 RS232_RXD => UART_RX,
-	 RS232_TXD => UART_TX
+    ext_reset_n  => ext_reset_n(2) and ext_reset_n(1) and ext_reset_n(0),
+    ext_bootdone => ext_bootdone(2) or ext_bootdone(1) or ext_bootdone(0),
+    ext_data     => ext_data,
+    ext_data_req => ext_data_req,
+    ext_data_ack => ext_data_ack,
+    
+    ext_sw       => ext_sw
 );
 
-
--- UART_TX <='1';
-
-mist_console_d: component mist_console
-	generic map
-	( CLKFREQ => 108)
-	port map
-	(
-		clk => memclk,
-		n_reset => reset,
-		ser_in => txd,
-		par_out_data => par_out_data,
-		par_out_strobe => par_out_strobe
-	);
-
-sd_card_d: component sd_card
-	port map
-	(
-		spiclk => spirecoveredclock,
-		uc_sysclk => uc_sysclk,
-		fpga_sysclk => memclk,
- 		-- connection to io controller
- 		io_lba => sd_lba,
- 		io_rd  => sd_rd,
-		io_wr  => sd_wr,
- 		io_ack => sd_ack,
-		io_conf => sd_conf,
-		io_sdhc => sd_sdhc,
- 		io_din => sd_data_in,
- 		io_din_strobe => sd_data_in_strobe,
-		io_dout => sd_data_out,
-		io_dout_strobe => sd_data_out_strobe,
- 
-		allow_sdhc  => '1',
-		
- 		-- connection to host
- 		sd_cs  => sd_cs,
- 		sd_sck => sd_sck,
-		sd_sdi => sd_sdi,
-		sd_sdo => sd_sdo		
-	);
-	
-user_io_d : user_io
-    generic map (STRLEN => 1)
+user_io_inst : user_io
+    generic map (STRLEN => CONF_STR'length)
     port map (
-      SPI_CLK => spirecoveredclock,
-      SPI_SS_IO => CONF_DATA0,
-      SPI_MISO => SPI_DO,
-      SPI_MOSI => SPI_DI,
-      conf_str => "00000000",   -- no config string -> no osd
-      status => status,
-		
- 		-- connection to io controller
-		sd_lba  => sd_lba,
-		sd_rd   => sd_rd,
-		sd_wr   => sd_wr,
-		sd_ack  => sd_ack,
-		sd_sdhc => sd_sdhc,
-		sd_conf => sd_conf,
- 		sd_dout => sd_data_in,
- 		sd_dout_strobe => sd_data_in_strobe,
-		sd_din => sd_data_out,
-		sd_din_strobe => sd_data_out_strobe,
+        clk_sys => MCLK,
+        clk_sd => MCLK,
+        SPI_CLK => SPI_SCK,
+        SPI_SS_IO => CONF_DATA0,
+        SPI_MISO => SPI_DO,
+        SPI_MOSI => SPI_DI,
+        conf_str => to_slv(CONF_STR),
+        status => status,
+        ypbpr => ypbpr,
+        scandoubler_disable => scandoubler_disable,
 
-      joystick_0 => joy_0,
-      joystick_1 => joy_1,
-      joystick_2 => joy_2,
-      joystick_3 => joy_3,
-      joystick_4 => joy_4,
-      joystick_analog_0 => joy_ana_0,
-      joystick_analog_1 => joy_ana_1,
+        joystick_0 => joy_0,
+        joystick_1 => joy_1,
+        joystick_analog_0 => open,
+        joystick_analog_1 => open,
 --      switches => switches,
-       BUTTONS => buttons,
-		ps2_clk => ps2_clk,
-      ps2_kbd_clk => ps2_keyboard_clk_in,
-      ps2_kbd_data => ps2_keyboard_dat_in,
-      ps2_mouse_clk => ps2_mouse_clk_in,
-      ps2_mouse_data => ps2_mouse_dat_in,
- 		serial_data => par_out_data,
- 		serial_strobe => par_out_strobe
+        buttons => buttons,
+        ps2_kbd_clk => open,
+        ps2_kbd_data => open,
+        ps2_mouse_clk => open,
+        ps2_mouse_data => open,
+        serial_data => par_out_data,
+        serial_strobe => par_out_strobe
  );
 
-vga_window<='1';
-mydither : component video_vga_dither
-	generic map (
-		outbits => 6
-	)
-	port map (
-		clk => memclk,
-		hsync => vga_ths,
-		vsync => vga_tvs,
-		vid_ena => vga_window,
-		iRed => vga_tred,
-		iGreen => vga_tgreen,
-		iBlue => vga_tblue,
-		std_logic_vector(oRed) => VGA_R,
-		std_logic_vector(oGreen) => VGA_G,
-		std_logic_vector(oBlue) => VGA_B
+data_io_inst: data_io
+    port map (
+        clk     => memclk,
+        clkref  => data_io_clkref,
+        wr      => data_io_wr,
+        a       => open,
+        d       => data_io_d,
+        downloading => downloading,
+        index   => open,
+
+        sck     => SPI_SCK,
+        ss      => SPI_SS2,
+        sdi     => SPI_DI
+    );
+
+process(memclk)
+begin
+    if rising_edge( memclk ) then
+        downloadingD <= downloading;
+        ext_reset_n <= ext_reset_n(1 downto 0)&'1'; --stretch reset
+        ext_bootdone <= ext_bootdone(1 downto 0)&'0';
+        ext_data_ack <= '0';
+        if (downloadingD = '0' and downloading = '1') then
+            -- ROM downloading start
+            ext_reset_n(0) <= '0';
+            d_state <= "00";
+            data_io_clkref <= '1';
+        elsif (downloading = '0') then
+            -- ROM downloading finished
+            ext_bootdone(0) <= '1';
+            data_io_clkref <= '0';
+        elsif (downloading = '1') then
+            -- ROM downloading in progress
+            case d_state is
+            when "00" =>
+                if data_io_wr = '1' then
+                    ext_data(15 downto 8) <= data_io_d;
+                    data_io_clkref <= '1';
+                    d_state <= "01";
+                end if;
+            when "01" =>
+                if data_io_wr = '1' then
+                    ext_data(7 downto 0) <= data_io_d;
+                    data_io_clkref <= '0';
+                    d_state <= "10";
+                end if;
+            when "10" =>
+                if ext_data_req = '1' then
+                    ext_data_ack <= '1';
+                    d_state <= "11";
+                end if;
+            when "11" =>
+                data_io_clkref <= '1';
+                d_state <= "00";
+            end case;
+        end if;
+    end if;
+end process;
+
+scandoubler_inst: scandoubler
+    port map (
+        clk_sys     => MCLK,
+        scanlines   => status(12 downto 11),
+
+        hs_in       => gen_hs,
+        vs_in       => gen_vs,
+        r_in        => gen_red,
+        g_in        => gen_green,
+        b_in        => gen_blue,
+
+        hs_out      => sd_hs,
+        vs_out      => sd_vs,
+        r_out       => sd_r,
+        g_out       => sd_g,
+        b_out       => sd_b
+    );
+
+osd_inst: osd
+    port map (
+        clk_sys     => MCLK,
+
+        SPI_SCK     => SPI_SCK,
+        SPI_SS3     => SPI_SS3,
+        SPI_DI      => SPI_DI,
+
+        R_in        => osd_red_i,
+        G_in        => osd_green_i,
+        B_in        => osd_blue_i,
+        HSync       => osd_hs_i,
+        VSync       => osd_vs_i,
+
+        R_out       => osd_red_o,
+        G_out       => osd_green_o,
+        B_out       => osd_blue_o
+    );
+
+--
+rgb2component: component rgb2ypbpr
+	port map
+	(
+	   red => osd_red_o,
+	   green => osd_green_o,
+	   blue => osd_blue_o,
+	   y => vga_y_o,
+	   pb => vga_pb_o,
+	   pr => vga_pr_o
 	);
+
+osd_red_i   <= gen_red & gen_red(3 downto 2) when scandoubler_disable = '1' else sd_r;
+osd_green_i <= gen_green & gen_green(3 downto 2) when scandoubler_disable = '1' else sd_g;
+osd_blue_i  <= gen_blue & gen_blue(3 downto 2) when scandoubler_disable = '1' else sd_b;
+osd_hs_i    <= gen_hs when scandoubler_disable = '1' else sd_hs;
+osd_vs_i    <= gen_vs when scandoubler_disable = '1' else sd_vs;
  
  -- If 15kHz Video - composite sync to VGA_HS and VGA_VS high for MiST RGB cable
-VGA_HS <= not (vga_ths xor vga_tvs) when vid_15khz='1' else vga_ths;
-VGA_VS <= '1' when vid_15khz='1' else vga_tvs;
+VGA_HS <= not (gen_hs xor gen_vs) when scandoubler_disable='1' else not (sd_hs xor sd_vs) when ypbpr='1' else sd_hs;
+VGA_VS <= '1' when scandoubler_disable='1' or ypbpr='1' else sd_vs;
+VGA_R <= vga_pr_o when ypbpr='1' else osd_red_o;
+VGA_G <= vga_y_o  when ypbpr='1' else osd_green_o;
+VGA_B <= vga_pb_o when ypbpr='1' else osd_blue_o;
 
 -- Do we have audio?  If so, instantiate a two DAC channels.
 leftsd: component hybrid_pwm_sd

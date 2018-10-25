@@ -155,6 +155,23 @@ architecture rtl of chameleon_toplevel is
 	signal usart_rx : std_logic:='1';
 	signal ir : std_logic;
 
+	-- controller
+	signal dip_sw : std_logic_vector(15 downto 0);
+	signal host_reset_n : std_logic;
+	signal host_bootdone : std_logic := '0';
+	signal rommap : std_logic_vector(1 downto 0);
+
+	signal boot_req : std_logic := '0';
+	signal boot_ack : std_logic := '0';
+	signal boot_data : std_logic_vector(15 downto 0);
+	signal osd_window : std_logic;
+	signal osd_pixel : std_logic;
+
+	-- current video signal (switchable between TV and VGA)
+	signal vga_red_i : std_logic_vector(7 downto 0);
+	signal vga_green_i : std_logic_vector(7 downto 0);
+	signal vga_blue_i	: std_logic_vector(7 downto 0);		
+
 	-- Sigma Delta audio
 	COMPONENT hybrid_pwm_sd
 	PORT
@@ -194,7 +211,7 @@ begin
 my1mhz : entity work.chameleon_1mhz
 	generic map (
 		-- Timer calibration. Clock speed in Mhz.
-		clk_ticks_per_usec => 126
+		clk_ticks_per_usec => 108
 	)
 	port map(
 		clk => memclk,
@@ -217,7 +234,7 @@ myReset : entity work.gen_reset
 		generic map (
 			enable_docking_station => true,
 			enable_c64_joykeyb => true,
-			enable_c64_4player => true,
+			enable_c64_4player => false,
 			enable_raw_spi => true,
 			enable_iec_access =>true
 		)
@@ -323,8 +340,8 @@ cdtv_remote : entity work.chameleon_cdtv_remote
 --		key_rew : out std_logic;
 		key_play => gp1_run,
 --		key_ff : out std_logic;
-		key_stop => gp1_select,
---		key_vol_up : out std_logic;
+--		key_stop => gp1_select,
+		key_vol_up => gp1_select,
 --		key_vol_dn : out std_logic;
 		joystick_a => cdtv_joy1,
 		joystick_b => cdtv_joy2
@@ -334,8 +351,11 @@ cdtv_remote : entity work.chameleon_cdtv_remote
 
 joy1<=not gp1_run & not gp1_select & (c64_joy1 and cdtv_joy1);
 joy2<="11" & (c64_joy2 and cdtv_joy2);
-joy3<="11" & joystick3;
-joy4<="11" & joystick4;
+
+joy3<=joy1(7)&joy1(5)&joy1(4)&joy1(6)&joy1(0)&joy1(1)&joy1(2)&joy1(3);
+joy4<=joy2(7)&joy2(5)&joy2(4)&joy2(6)&joy2(0)&joy2(1)&joy2(2)&joy2(3);
+--joy3<="11" & joystick3;
+--joy4<="11" & joystick4;
 	
 
   U00 : entity work.pll
@@ -370,39 +390,105 @@ virtualtoplevel : entity work.Virtual_Toplevel
     DRAM_ADDR => sd_addr,
     DRAM_DQ => sd_data,
 
-    -- PS/2 keyboard ports
-	 ps2k_clk_out => ps2_keyboard_clk_out,
-	 ps2k_dat_out => ps2_keyboard_dat_out,
-	 ps2k_clk_in => ps2_keyboard_clk_in,
-	 ps2k_dat_in => ps2_keyboard_dat_in,
- 
 --    -- Joystick ports (Port_A, Port_B)
-	joya => std_logic_vector(joy1),
-	joyb => std_logic_vector(joy2),
+	joya => std_logic_vector(not joy3),
+	joyb => std_logic_vector(not joy4),
 --	joyc => std_logic_vector(joy3),
 --	joyd => std_logic_vector(joy4),
 
-    -- SD/MMC slot ports
-	spi_clk => spi_clk,
-	spi_mosi => spi_mosi,
-	spi_cs => spi_cs,
-	spi_miso => spi_miso,
+		ext_sw => dip_sw,
+		-- Host control
+		ext_reset_n => host_reset_n,
+		ext_bootdone => host_bootdone,
+		
+		-- Host boot data
+		ext_data => boot_data,
+		ext_data_req => boot_req,
+		ext_data_ack => boot_ack,
 
 	-- Video, Audio/CMT ports
-    unsigned(VGA_R) => vga_r,
-    unsigned(VGA_G) => vga_g,
-    unsigned(VGA_B) => vga_b,
+    unsigned(VGA_R) => vga_red_i,
+    unsigned(VGA_G) => vga_green_i,
+    unsigned(VGA_B) => vga_blue_i,
 
     VGA_HS => vga_hsync,
     VGA_VS => vga_vsync,
 
 	 DAC_LDATA => audio_l,
-	 DAC_RDATA => audio_r,
-	 
-	 RS232_RXD => rs232_rxd,
-	 RS232_TXD => rs232_txd
+	 DAC_RDATA => audio_r
 );
 
+-- Control module:
+
+mycontrolmodule : entity work.CtrlModule
+	generic map (
+		sysclk_frequency => 540 -- Sysclk frequency * 10
+	)
+	port map (
+		clk => clk54m,
+		osdclk => memclk,
+		reset_n => reset,
+
+		-- SPI signals
+		spi_miso	=> spi_miso,
+		spi_mosi => spi_mosi,
+		spi_clk => spi_clk,
+		spi_cs => spi_cs,
+		
+		-- UART
+		rxd => RS232_RXD,
+		txd => RS232_TXD,
+		
+		-- DIP switches
+		dipswitches => dip_sw,
+
+		-- PS2 keyboard
+		ps2k_clk_out => ps2_keyboard_clk_out,
+		ps2k_dat_out => ps2_keyboard_dat_out,
+		ps2k_clk_in => ps2_keyboard_clk_in,
+		ps2k_dat_in => ps2_keyboard_dat_in,
+		
+		-- Host control
+		host_reset_n => host_reset_n,
+		host_bootdone => host_bootdone,
+		
+		-- Host boot data
+		host_bootdata => boot_data,
+		host_bootdata_req => boot_req,
+		host_bootdata_ack => boot_ack,
+		rommap => rommap,
+		
+		-- Video signals for OSD
+		vga_hsync => vga_hsync,
+		vga_vsync => vga_vsync,
+		osd_window => osd_window,
+		osd_pixel => osd_pixel,
+		
+		vol_master => open, --MASTER_VOLUME,
+		
+		-- Gamepad emulation
+		gp1emu => open,--int_gp1emu,
+		gp2emu => open --int_gp2emu
+);
+
+
+overlay : entity work.OSD_Overlay
+	port map
+	(
+		clk => memclk,
+		red_in => vga_red_i,
+		green_in => vga_green_i,
+		blue_in => vga_blue_i,
+		window_in => '1',
+		osd_window_in => osd_window,
+		osd_pixel_in => osd_pixel,
+		hsync_in => vga_hsync,
+		red_out => vga_r,
+		green_out => vga_g,
+		blue_out => vga_b,
+		window_out => open,
+		scanline_ena => dip_sw(1)
+	);
 	
 -- Dither the video down to 5 bits per gun.
 	vga_window<='1';
@@ -425,26 +511,26 @@ virtualtoplevel : entity work.Virtual_Toplevel
 			oGreen => grn,
 			oBlue => blu
 		);
+
+leftsd: component hybrid_pwm_sd
+	port map
+	(
+		clk => memclk,
+		n_reset => n_reset,
+		din(15) => not audio_l(15),
+		din(14 downto 0) => std_logic_vector(audio_l(14 downto 0)),
+		dout => sigmaL
+	);
 	
---leftsd: component hybrid_pwm_sd
---	port map
---	(
---		clk => memclk,
---		n_reset => n_reset,
---		din(15) => not audio_l(15),
---		din(14 downto 0) => std_logic_vector(audio_l(14 downto 0)),
---		dout => sigmaL
---	);
---	
---rightsd: component hybrid_pwm_sd
---	port map
---	(
---		clk => memclk,
---		n_reset => n_reset,
---		din(15) => not audio_r(15),
---		din(14 downto 0) => std_logic_vector(audio_r(14 downto 0)),
---		dout => sigmaR
---	);
---
+rightsd: component hybrid_pwm_sd
+	port map
+	(
+		clk => memclk,
+		n_reset => n_reset,
+		din(15) => not audio_r(15),
+		din(14 downto 0) => std_logic_vector(audio_r(14 downto 0)),
+		dout => sigmaR
+	);
+
 
 end architecture;

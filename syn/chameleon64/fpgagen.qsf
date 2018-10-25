@@ -41,7 +41,7 @@ set_global_assignment -name DEVICE EP3C25E144C8
 set_global_assignment -name TOP_LEVEL_ENTITY chameleon_toplevel
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION "12.0 SP1"
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "09:53:42  OCTOBER 07, 2012"
-set_global_assignment -name LAST_QUARTUS_VERSION "13.0 SP1"
+set_global_assignment -name LAST_QUARTUS_VERSION 13.1
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 144
@@ -144,8 +144,8 @@ set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -rise
 set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -fall
 set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -rise
 set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -fall
-set_global_assignment -name ENABLE_SIGNALTAP ON
-set_global_assignment -name USE_SIGNALTAP_FILE stp1.stp
+set_global_assignment -name ENABLE_SIGNALTAP OFF
+set_global_assignment -name USE_SIGNALTAP_FILE stp2.stp
 set_location_assignment PIN_44 -to sdram_clk
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to sdram_clk
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to sd_we_n
@@ -248,6 +248,16 @@ set_global_assignment -name SMART_RECOMPILE ON
 
 
 
+
+
+
+
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
+set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_global_assignment -name VHDL_FILE ../../src/TG68KdotC_Kernel.vhd
+set_global_assignment -name VHDL_FILE ../../src/TG68K_Pack.vhd
+set_global_assignment -name VHDL_FILE ../../src/TG68K_ALU.vhd
+set_global_assignment -name QIP_FILE ../../jt12/jt12.qip
 set_global_assignment -name VHDL_FILE ../../Board/chameleon64/gen_reset.vhd
 set_global_assignment -name VHDL_FILE ../../Board/chameleon64/chameleon_toplevel.vhd
 set_global_assignment -name VHDL_FILE ../../Board/chameleon64/chameleon_phi_clock_e.vhd
@@ -261,6 +271,14 @@ set_global_assignment -name VHDL_FILE ../../Board/chameleon64/chameleon_buttons.
 set_global_assignment -name VHDL_FILE ../../Board/chameleon64/chameleon_autofire.vhd
 set_global_assignment -name VHDL_FILE ../../Board/chameleon64/chameleon_1mhz.vhd
 set_global_assignment -name VHDL_FILE ../../Board/chameleon64/chameleon_1khz.vhd
+set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_interpol.v
+set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_mixer.v
+set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_fir.v
+set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_fir4.v
+set_global_assignment -name VERILOG_FILE ../../jt12/hdl/jt12_sumch.v
+set_global_assignment -name VHDL_FILE ../../src/psg/psg_tone.vhd
+set_global_assignment -name VHDL_FILE ../../src/psg/psg_noise.vhd
+set_global_assignment -name VHDL_FILE ../../src/psg/psg.vhd
 set_global_assignment -name VHDL_FILE ../../src/virtual_toplevel.vhd
 set_global_assignment -name VHDL_FILE ../../src/video_vga_dither.vhd
 set_global_assignment -name VHDL_FILE ../../src/T80/T80se.vhd
@@ -269,8 +287,6 @@ set_global_assignment -name VHDL_FILE ../../src/T80/T80_Pack.vhd
 set_global_assignment -name VHDL_FILE ../../src/T80/T80_MCode.vhd
 set_global_assignment -name VHDL_FILE ../../src/T80/T80_ALU.vhd
 set_global_assignment -name VHDL_FILE ../../src/T80/T80.vhd
-set_global_assignment -name VHDL_FILE ../../src/TG68_fast.vhd
-set_global_assignment -name VHDL_FILE ../../src/TG68.vhd
 set_global_assignment -name VHDL_FILE ../../src/vdp_common.vhd
 set_global_assignment -name VHDL_FILE ../../src/vdp.vhd
 set_global_assignment -name VHDL_FILE ../../src/sdram_controller.vhd
@@ -295,10 +311,13 @@ set_global_assignment -name VHDL_FILE ../../Firmware/CtrlROM/CtrlROM_ROM.vhd
 set_global_assignment -name VHDL_FILE ../../CtrlModule/CharROM/CharROM_ROM.vhd
 set_global_assignment -name QIP_FILE ../../Board/chameleon64/pll.qip
 set_global_assignment -name SDC_FILE ../../Board/chameleon64/constraints.sdc
-
-
 set_global_assignment -name VHDL_FILE ../../Firmware/CtrlROM/CtrlROM_ROM2.vhd
 set_global_assignment -name VHDL_FILE ../../Firmware/CtrlROM/CtrlROM_ROM1.vhd
 set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/CtrlROM.vhd
 set_global_assignment -name VHDL_FILE ../../CtrlModule/RTL/MergeROM.vhd
+set_global_assignment -name VERILOG_FILE ../../Board/mist/hybrid_pwm_sd.v
+set_global_assignment -name SIGNALTAP_FILE stp2.stp
+set_global_assignment -name CDF_FILE "../../../minimig-mist/fpga/mist/out/Chain1.cdf"
+set_global_assignment -name VERILOG_FILE ../../src/TwoWayCache.v
+set_global_assignment -name VHDL_FILE ../../src/DualPortRAM.vhd
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
