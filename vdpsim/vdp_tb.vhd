@@ -49,8 +49,6 @@ component vdp
                 VINT_T80        : out std_logic;
 
                 VBUS_ADDR               : out std_logic_vector(23 downto 0);
-                VBUS_UDS_N              : out std_logic;
-                VBUS_LDS_N              : out std_logic;
                 VBUS_DATA               : in std_logic_vector(15 downto 0);
 
                 VBUS_SEL                : out std_logic;

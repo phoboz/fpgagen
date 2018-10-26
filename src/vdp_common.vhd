@@ -84,6 +84,6 @@ constant VSYNC_START_NTSC_V28	: integer := 485;
 constant VSYNC_START_NTSC_V30	: integer := 466;
 
 constant NTSC_LINES             : integer := 262;
-constant PAL_LINES              : integer := 312;
+constant PAL_LINES              : integer := 313;
 
 end vdp_common;

@@ -108,14 +108,13 @@ signal core_led         : std_logic;
 
 constant CONF_STR : string :=
     "GENESIS;BINGENMD ;"&
-    "O7,Display,NTSC,PAL;"&
+    "O78,Region,Auto,EU,JP,US;"&
     "OBC,Scanlines,Off,25%,50%,75%;"&
     "O6,Joystick swap,Off,On;"&
     "O9,Swap Y axis,Off,On;"&
     "OA,Only 3 buttons,Off,On;"&
     "O4,FM Sound,Enable,Disable;"&
     "O5,PSG Sound,Enable,Disable;"&
-    "O8,Model,Export,Domestic;"&
     "T0,Reset;";
 
 -- convert string to std_logic_vector to be given to user_io
@@ -268,8 +267,8 @@ end process;
 ext_sw(2) <= status(6); --joy swap
 ext_sw(3) <= status(5); --psg en
 ext_sw(4) <= status(4); --fm en
-ext_sw(5) <= status(7); --PAL
-ext_sw(6) <= not status(8); --model
+ext_sw(5) <= status(7); --Export
+ext_sw(6) <= not status(8); --PAL
 ext_sw(7) <= status(9); --swap Y
 ext_sw(8) <= status(10); --3 buttons
 

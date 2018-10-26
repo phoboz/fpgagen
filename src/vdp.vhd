@@ -79,8 +79,6 @@ entity vdp is
 		INTACK		: in std_logic;
 
 		VBUS_ADDR		: out std_logic_vector(23 downto 0);
-		VBUS_UDS_N		: out std_logic;
-		VBUS_LDS_N		: out std_logic;
 		VBUS_DATA		: in std_logic_vector(15 downto 0);
 		
 		VBUS_SEL		: out std_logic;
@@ -305,8 +303,6 @@ signal DT_DMAV_DATA	: std_logic_vector(15 downto 0);
 signal DMAF_SET_REQ	: std_logic;
 
 signal FF_VBUS_ADDR		: std_logic_vector(23 downto 0);
-signal FF_VBUS_UDS_N	: std_logic;
-signal FF_VBUS_LDS_N	: std_logic;
 signal FF_VBUS_SEL		: std_logic;
 
 signal DMA_VBUS		: std_logic;
@@ -1068,6 +1064,8 @@ end process;
 process( RST_N, CLK )
 variable V_BGB_XSTART	: std_logic_vector(9 downto 0);
 variable V_BGB_BASE		: std_logic_vector(15 downto 0);
+variable vscroll_mask	: std_logic_vector(9 downto 0);
+variable hscroll_mask	: std_logic_vector(9 downto 0);
 -- synthesis translate_off
 file F		: text open write_mode is "bgb_dbg.out";
 variable L	: line;
@@ -1099,38 +1097,52 @@ begin
 				end case;
 				BGB_SEL <= '1';
 				BGBC <= BGBC_HS_RD;
-			
+
 			when BGBC_HS_RD =>
-				V_BGB_XSTART := "0000000000" - BGB_VRAM_DO(9 downto 0);
 				if early_ack_bgb = '0' then
---				if BGB_DTACK_N = '0' then
+					if HSIZE = "10" then
+						-- illegal mode, 32x1
+						hscroll_mask := "0011111111";
+					else
+						hscroll_mask := (HSIZE & "11111111");
+					end if;
+					V_BGB_XSTART := "0000000000" - BGB_VRAM_DO(9 downto 0);
 					BGB_SEL <= '0';
-					BGB_X <= ( V_BGB_XSTART(9 downto 3) & "000" ) and (HSIZE & "11111111");
+					BGB_X <= ( V_BGB_XSTART(9 downto 3) & "000" ) and hscroll_mask;
 					BGB_POS <= "0000000000" - ( "0000000" & V_BGB_XSTART(2 downto 0) );
 					BGBC <= BGBC_CALC_Y;
 				end if;
 
 			when BGBC_CALC_Y =>
+				if HSIZE = "10" then
+					-- illegal mode, 32x1
+					vscroll_mask := "0000000111";
+				else
+					vscroll_mask := (VSIZE & "11111111");
+				end if;
 				BGB_COLINFO_WE_A <= '0';
 				if BGB_POS(9) = '1' then
-					BGB_Y <= (BGB_VSRAM1_LATCH + Y) and (VSIZE & "11111111");
+					BGB_Y <= (BGB_VSRAM1_LATCH + Y) and vscroll_mask;
 				else
 					if VSCR = '1' then
-						BGB_Y <= (VSRAM( CONV_INTEGER(BGB_POS(8 downto 4) & "1") )(9 downto 0) + Y) and (VSIZE & "11111111");
+						BGB_Y <= (VSRAM( CONV_INTEGER(BGB_POS(8 downto 4) & "1") )(9 downto 0) + Y) and vscroll_mask;
 					else
-						BGB_Y <= (BGB_VSRAM1_LATCH + Y) and (VSIZE & "11111111");
+						BGB_Y <= (BGB_VSRAM1_LATCH + Y) and vscroll_mask;
 					end if;
 				end if;
 				BGBC <= BGBC_CALC_BASE;
-				
+
 			when BGBC_CALC_BASE =>
 				case HSIZE is
 				when "00" => -- HS 32 cells
 					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + (BGB_Y(9 downto 3) & "00000" & "0");
 				when "01" => -- HS 64 cells
 					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + (BGB_Y(9 downto 3) & "000000" & "0");
-				when others => -- HS 128 cells
+				when "10" => -- illegal 32x1 cells
+					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + BGB_Y(9 downto 3);
+				when "11" => -- HS 128 cells
 					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + (BGB_Y(9 downto 3) & "0000000" & "0");
+				when others => null;
 				end case;
 				BGB_VRAM_ADDR <= V_BGB_BASE(15 downto 1);
 				BGB_SEL <= '1';
@@ -1262,6 +1274,8 @@ process( RST_N, CLK )
 variable V_BGA_XSTART	: std_logic_vector(9 downto 0);
 variable V_BGA_XBASE		: std_logic_vector(15 downto 0);
 variable V_BGA_BASE		: std_logic_vector(15 downto 0);
+variable vscroll_mask	: std_logic_vector(9 downto 0);
+variable hscroll_mask	: std_logic_vector(9 downto 0);
 -- synthesis translate_off
 file F		: text open write_mode is "bga_dbg.out";
 variable L	: line;
@@ -1306,13 +1320,18 @@ begin
 				end case;
 				BGA_SEL <= '1';
 				BGAC <= BGAC_HS_RD;
-			
+
 			when BGAC_HS_RD =>
-				V_BGA_XSTART := "0000000000" - BGA_VRAM_DO(9 downto 0);
 				if early_ack_bga='0' then
---				if BGA_DTACK_N = '0' then
+					if HSIZE = "10" then
+						-- illegal mode, 32x1
+						hscroll_mask := "0011111111";
+					else
+						hscroll_mask := (HSIZE & "11111111");
+					end if;
+					V_BGA_XSTART := "0000000000" - BGA_VRAM_DO(9 downto 0);
 					BGA_SEL <= '0';
-					BGA_X <= ( V_BGA_XSTART(9 downto 3) & "000" ) and (HSIZE & "11111111");
+					BGA_X <= ( V_BGA_XSTART(9 downto 3) & "000" ) and hscroll_mask;
 					BGA_POS <= "0000000000" - ( "0000000" & V_BGA_XSTART(2 downto 0) );
 					BGAC <= BGAC_CALC_Y;
 				end if;
@@ -1322,13 +1341,19 @@ begin
 				if WIN_H = '1' or WIN_V = '1' then
 					BGA_Y <= "00" & Y;					
 				else
+					if HSIZE = "10" then
+						-- illegal mode, 32x1
+						vscroll_mask := "0000000111";
+					else
+						vscroll_mask := (VSIZE & "11111111");
+					end if;
 					if BGA_POS(9) = '1' then
-						BGA_Y <= (BGA_VSRAM0_LATCH + Y) and (VSIZE & "11111111");
+						BGA_Y <= (BGA_VSRAM0_LATCH + Y) and vscroll_mask;
 					else
 						if VSCR = '1' then
-							BGA_Y <= (VSRAM( CONV_INTEGER(BGA_POS(8 downto 4) & "0") )(9 downto 0) + Y) and (VSIZE & "11111111");
+							BGA_Y <= (VSRAM( CONV_INTEGER(BGA_POS(8 downto 4) & "0") )(9 downto 0) + Y) and vscroll_mask;
 						else
-							BGA_Y <= (BGA_VSRAM0_LATCH + Y) and (VSIZE & "11111111");
+							BGA_Y <= (BGA_VSRAM0_LATCH + Y) and vscroll_mask;
 						end if;
 					end if;
 				end if;
@@ -1349,8 +1374,11 @@ begin
 						V_BGA_BASE := V_BGA_XBASE + (BGA_Y(9 downto 3) & "00000" & "0");
 					when "01" => -- HS 64 cells
 						V_BGA_BASE := V_BGA_XBASE + (BGA_Y(9 downto 3) & "000000" & "0");
-					when others => -- HS 128 cells
+					when "10" => -- illegal 32x1 cells
+						V_BGA_BASE := V_BGA_XBASE + BGA_Y(9 downto 3);
+					when "11" => -- HS 128 cells
 						V_BGA_BASE := V_BGA_XBASE + (BGA_Y(9 downto 3) & "0000000" & "0");
+					when others => null;
 					end case;
 				end if;
 				
@@ -2211,6 +2239,7 @@ begin
 					when "01" => cold := OBJ_COLINFO_Q_B(5 downto 0);
 					when "10" => cold := BGA_COLINFO_Q_B(5 downto 0);
 					when "11" => cold := BGB_COLINFO_Q_B(5 downto 0);
+					when others => null;
 				end case;
 
 				if DBG(6) = '1' then
@@ -2335,12 +2364,9 @@ end process;
 -- DATA TRANSFER CONTROLLER
 ----------------------------------------------------------------
 VBUS_ADDR <= FF_VBUS_ADDR;
-VBUS_UDS_N <= FF_VBUS_UDS_N;
-VBUS_LDS_N <= FF_VBUS_LDS_N;
 VBUS_SEL <= FF_VBUS_SEL;
 
 process( RST_N, CLK )
-variable vram_address: std_logic_vector(16 downto 0);
 -- synthesis translate_off
 file F		: text open write_mode is "vdp_dbg.out";
 variable L	: line;
@@ -2367,8 +2393,6 @@ begin
 		DT_FF_DTACK_N <= '1';
 
 		FF_VBUS_ADDR <= (others => '0');
-		FF_VBUS_UDS_N <= '1';
-		FF_VBUS_LDS_N <= '1';
 		FF_VBUS_SEL	<= '0';
 		DT_VBUS_SEL <= '0';
 		
@@ -2500,11 +2524,10 @@ begin
 					DT_VRAM_LDS_N <= '0';
 				else
 				   --(((a & 2) >> 1) ^ 1) | ((a & $400) >> 9) | a & $3FC | ((a & $1F800) >> 1)
-					vram_address := (not DT_WR_ADDR(1 downto 1)) or (DT_WR_ADDR(10 downto 9) and x"2") or (DT_WR_ADDR and x"3fc") or (DT_WR_ADDR(16 downto 1) and x"fc00");
-					DT_VRAM_ADDR <= vram_address(15 downto 1);
+					DT_VRAM_ADDR <= DT_WR_ADDR(16 downto 11) & DT_WR_ADDR(9 downto 2) & DT_WR_ADDR(10);
 					DT_VRAM_DI <= DT_WR_DATA(7 downto 0) & DT_WR_DATA(7 downto 0);
-					DT_VRAM_UDS_N <= vram_address(0);
-					DT_VRAM_LDS_N <= not vram_address(0);
+					DT_VRAM_UDS_N <= not DT_WR_ADDR(1);
+					DT_VRAM_LDS_N <= DT_WR_ADDR(1);
 				end if;
 
 				DTC <= DTC_VRAM_WR2;
@@ -2860,8 +2883,6 @@ begin
 			when DMA_VBUS_RD =>
 				FF_VBUS_SEL <= '1';
 				FF_VBUS_ADDR <= REG(23)(6 downto 0) & DMA_SOURCE & '0';
-				FF_VBUS_UDS_N <= '0';
-				FF_VBUS_LDS_N <= '0';
 				DMAC <= DMA_VBUS_RD2;
 
 			when DMA_VBUS_RD2 =>

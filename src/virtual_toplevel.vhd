@@ -90,8 +90,8 @@ entity Virtual_Toplevel is
 		ext_sw         : in std_logic_vector(15 downto 0) -- 2 - joy swap
 														  -- 3 - PSG EN
 														  -- 4 - FM EN
-														  -- 5 - PAL
-														  -- 6 - Export model
+														  -- 5 - Export
+														  -- 6 - PAL
 														  -- 7 - Swap y
 														  -- 8 - 3 Buttons only
 	);
@@ -369,8 +369,6 @@ signal VINT_T80		: std_logic;
 
 -- VDP VBUS DMA
 signal VBUS_ADDR	: std_logic_vector(23 downto 0);
-signal VBUS_UDS_N	: std_logic;
-signal VBUS_LDS_N	: std_logic;
 signal VBUS_DATA	: std_logic_vector(15 downto 0);		
 signal VBUS_SEL		: std_logic;
 signal VBUS_DTACK_N	: std_logic;	
@@ -412,6 +410,7 @@ signal KEY : std_logic_vector(3 downto 0);
 
 signal PAL : std_logic;
 signal model: std_logic;
+signal PAL_IO: std_logic;
 
 -- DEBUG
 signal HEXVALUE			: std_logic_vector(15 downto 0);
@@ -457,8 +456,8 @@ JOY_2(2) <= JOY_2_DOWN when JOY_SWAP = '0' else JOY_1_DOWN;
 JOY_2(3) <= JOY_2_UP when JOY_SWAP = '0' else JOY_1_UP;
 JOY_2(11 downto 4) <= joyb(11 downto 4) when JOY_SWAP = '0' else joya(11 downto 4);
 
-PAL <= SW(5);
-model <= SW(6);
+model <= SW(5);
+PAL <= SW(6);
 
 -- DIP Switches
 SW <= ext_sw;
@@ -583,7 +582,7 @@ TG68_IO <= '1' when TG68_WR = '1' or TG68_RD = '1' else '0';
 -- This matches the fact that the real 68000 spends four clock cycles per bus cycle.
 -- When doing internal processing (TG68_IO = 0, e.g. mul, div or shift) it 
 -- is enabled at full ~7.6MHz to behave similar to a real 68000.
-TG68_ENA <= '1' when TG68_CYCLE = '1' and (TG68_IO = '0' or (TG68_BUS_WAIT = "01" and TG68_DTACK_N = '0')) else '0';
+TG68_ENA <= '1' when TG68_CYCLE = '1' and (TG68_IO = '0' or (TG68_BUS_WAIT = "01" and TG68_DTACK_N = '0')) and VBUS_SEL = '0' else '0';
 TG68_INTACK <= '1' when TG68_SEL = '1' and TG68_FC = "111" else '0';
 
 -- 68K
@@ -689,6 +688,7 @@ port map(
 	DTACK_N		=> IO_DTACK_N,
 
 	PAL			=> PAL,
+	PAL_OUT		=> PAL_IO,
 	MODEL		=> model
 );
 
@@ -726,14 +726,12 @@ port map(
 	INTACK			=> TG68_INTACK,
 		
 	VBUS_ADDR		=> VBUS_ADDR,
-	VBUS_UDS_N		=> VBUS_UDS_N,
-	VBUS_LDS_N		=> VBUS_LDS_N,
 	VBUS_DATA		=> VBUS_DATA,
 		
 	VBUS_SEL			=> VBUS_SEL,
 	VBUS_DTACK_N	=> VBUS_DTACK_N,
 
-	PAL					=> PAL,
+	PAL					=> PAL_IO,
 	R					=> VDP_RED,
 	G					=> VDP_GREEN,
 	B					=> VDP_BLUE,
@@ -795,7 +793,24 @@ DAC_RDATA <= std_logic_vector(signed(FM_MUX_RIGHT(11)&FM_MUX_RIGHT&"000") + sign
 ----------------------------------------------------------------
 
 T80_INT_N <= not VINT_T80;
-TG68_IPL_N <= "001" when VINT_TG68 = '1' else "011" when HINT = '1' else "111";
+--TG68_IPL_N <= "001" when VINT_TG68 = '1' else "011" when HINT = '1' else "111";
+process( MCLK )
+begin
+	if rising_edge(MCLK) then
+		-- some delay between the VDP and CPU interrupt lines
+		-- makes Fatal Rewind happy
+		-- probably it should belong to the CPU
+		if TG68_CYCLE = '1' and TG68_BUS_WAIT = "00" then
+			if VINT_TG68 = '1' then
+				TG68_IPL_N <= "001";
+			elsif HINT = '1' then
+				TG68_IPL_N <= "011";
+			else
+				TG68_IPL_N <= "111";
+			end if;
+		end if;
+	end if;
+end process;
 
 ----------------------------------------------------------------
 -- SWITCHES CONTROL

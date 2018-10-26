@@ -81,6 +81,7 @@ entity gen_io is
 		DTACK_N	: out std_logic;
 
 		PAL		: in std_logic;
+		PAL_OUT : out std_logic;
 		MODEL   : in std_logic
 	);
 end gen_io;
@@ -88,6 +89,7 @@ architecture rtl of gen_io is
 signal FF_DTACK_N	: std_logic;
 
 signal VERS			: std_logic_vector(7 downto 0);
+signal VERS_D		: std_logic_vector(7 downto 0);
 signal DATA			: std_logic_vector(7 downto 0);
 signal DATB			: std_logic_vector(7 downto 0);
 signal DATC			: std_logic_vector(7 downto 0);
@@ -122,7 +124,9 @@ DTACK_N <= FF_DTACK_N;
 REG <= A(4 downto 1);
 WD <= DI(7 downto 0) when LDS_N = '0' else DI(15 downto 8);
 
-VERS <= MODEL & PAL & "10" & x"0";
+--invalid combination (PAL with Japanese model) means auto-detect
+VERS <= VERS_D when MODEL = '0' and PAL = '1' else (MODEL & PAL & "10" & x"0");
+PAL_OUT <= VERS(6);
 
 process( RST_N, CLK )
 begin
@@ -174,7 +178,7 @@ begin
 				-- Write
 				case REG is
 				when x"0" =>
-					null;--VERS <= WD; -- Read only
+					VERS_D <= WD;
 				when x"1" =>
 					DATA(7) <= WD(7);
 					if CTLA(6) = '1' then 
