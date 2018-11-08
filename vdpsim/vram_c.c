@@ -17,21 +17,21 @@ unsigned char chr[] = { 'U','X','0','1','Z','W','L','H','-' };
 unsigned char *rom = NULL;
 
 void load_rom(void) {
-  FILE *f = fopen("SpriteMaskingTestRomSrc/vram - h32.bin", "rb");
+  FILE *f = fopen("dump/vram.bin", "rb");
   if(!f) perror("fopen");
   rom = malloc(65536);
   fread(rom, 65536, 1, f);
   fclose(f);
 }
 
-void vram_c(char clk, char addr[15], char dout[16]) {
+void vram_c(char clk, char we, char din[16], char addr[15], char dout[16]) {
   static char last_clk = 0;
   static unsigned int last_addr = 0xffffffff;
 
   if(!rom) load_rom();
 
   // only do something if clock changes
-  if(clk == last_clk) 
+  if((clk == last_clk) && (clk != SULV_0)&&(clk != SULV_L)  )
     return;
 
   last_clk = clk;
@@ -43,14 +43,19 @@ void vram_c(char clk, char addr[15], char dout[16]) {
       a |= 1;
   }
 
-  if(a == last_addr) {
-    //    printf("same read\n");
-    return;
+  unsigned int din16 = 0;
+  for(i=0;i<16;i++) {
+    din16 <<= 1;
+    if((din[i] == SULV_1)||(din[i] == SULV_H))
+      din16 |= 1;
   }
 
   unsigned short d16 = 256*rom[2*a] + rom[2*a+1];
   //  printf("vram(%04x) = $%04x\n", a, d16);
 
+  if( (a != last_addr) && (((we == SULV_1) || (we == SULV_H))))
+    printf("VRAM WR $%04x = $%04x (is $%04x)\n", 2*a, din16, d16);
+  
   for(i=0;i<16;i++)
     dout[i] = (d16 & (0x8000>>i))?SULV_1:SULV_0;
 

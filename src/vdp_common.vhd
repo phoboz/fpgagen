@@ -62,11 +62,11 @@ constant HSYNC_START_H40        : integer := H_DISP_START_H40 + H_TOTAL_WIDTH_H4
 constant HSYNC_END_H32          : integer := H_DISP_START_H32 + 24 - 8; --498; -- -14
 constant HSYNC_END_H40          : integer := H_DISP_START_H40 + 24 - 8; --492; -- -20
 
-constant H_INT_H32              : integer := 265;
-constant H_INT_H40              : integer := 329;
-
 constant H_DISP_WIDTH_H32       : integer := 256;
 constant H_DISP_WIDTH_H40       : integer := 320;
+
+constant H_INT_H32              : integer := HBLANK_END_H32 + H_DISP_WIDTH_H32; -- 265
+constant H_INT_H40              : integer := HBLANK_END_H40 + H_DISP_WIDTH_H40; -- now 330, was 329
 
 constant V_DISP_START_PAL_V28   : integer := 458;
 constant V_DISP_START_NTSC_V28  : integer := 485; -- -27;

@@ -10,8 +10,8 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity psg_noise is
 port (
-	clk		: in  STD_LOGIC;
-	clken		: in	STD_LOGIC;
+	clk	   : in  STD_LOGIC;
+	clk_en   : in  STD_LOGIC;
 	style		: in  STD_LOGIC_VECTOR (2 downto 0);
 	tone		: in  STD_LOGIC_VECTOR (9 downto 0);
 	volume	: in  STD_LOGIC_VECTOR (3 downto 0);
@@ -26,11 +26,11 @@ architecture rtl of psg_noise is
 
 begin
 
-	process (clk, tone)
+	process (clk)
 		variable feedback: std_logic;
 	begin
 		if rising_edge(clk) then
-			if clken='1' then
+			if clk_en = '1' then
 				if counter="000000001" then
 					v <= not v;
 					case style(1 downto 0) is
@@ -56,7 +56,6 @@ begin
 		end if;
 	end process;
 
-	output <= (shift(0)&shift(0)&shift(0)&shift(0)) or volume;
-
+	output <= not volume when shift(0) = '1' else "0000";
 end rtl;
 

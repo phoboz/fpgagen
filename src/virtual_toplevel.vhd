@@ -162,13 +162,8 @@ signal T80_ZRAM_SEL		: std_logic;
 signal T80_ZRAM_D			: std_logic_vector(7 downto 0);
 signal T80_ZRAM_DTACK_N	: std_logic;
 
-type zrc_t is ( ZRC_IDLE,
-	ZRC_ACC1, ZRC_ACC2, ZRC_ACC3
-);
+type zrc_t is ( ZRC_IDLE, ZRC_ACC1 );
 signal ZRC : zrc_t;
-
-type zrcp_t is ( ZRCP_T80, ZRCP_TG68 );
-signal ZRCP : zrcp_t;
 
 constant useCache : boolean := false;
 
@@ -332,10 +327,10 @@ signal FM_DI			: std_logic_vector(7 downto 0);
 signal FM_DO			: std_logic_vector(7 downto 0);
 signal FM_CLKOUT		: std_logic;
 signal FM_SAMPLE		: std_logic;
-signal FM_LEFT			: std_logic_vector(11 downto 0);
-signal FM_RIGHT			: std_logic_vector(11 downto 0);
-signal FM_MUX_LEFT		: std_logic_vector(11 downto 0);
-signal FM_MUX_RIGHT		: std_logic_vector(11 downto 0);
+signal FM_LEFT			: std_logic_vector(8 downto 0);
+signal FM_RIGHT			: std_logic_vector(8 downto 0);
+signal FM_MUX_LEFT		: std_logic_vector(8 downto 0);
+signal FM_MUX_RIGHT		: std_logic_vector(8 downto 0);
 signal FM_ENABLE		: std_logic;
 
 -- PSG
@@ -743,9 +738,9 @@ port map(
 
 u_psg : work.psg
 port map(
+	reset	=> not MRST_N,
 	clk		=> MCLK,
-	clken		=> ZCLK_ENA,
-	timing_clken	=> ZCLK_ENA,
+	clken	=> ZCLK_ENA,
 	WR_n	=> not PSG_SEL,
 	D_in	=> PSG_DI,
 	output	=> PSG_SND
@@ -765,20 +760,20 @@ port map(
 	din		=> FM_DI,
 	dout	=> FM_DO,
 
-	snd_left	=> FM_LEFT,
-	snd_right	=> FM_RIGHT
+	mux_left	=> FM_LEFT,
+	mux_right=> FM_RIGHT
 );
 
 -- Audio control
 PSG_ENABLE <= not SW(3);
 FM_ENABLE <= not SW(4);
 
-FM_MUX_LEFT <= FM_LEFT when FM_ENABLE = '1' else "000000000000";
-FM_MUX_RIGHT <= FM_RIGHT when FM_ENABLE = '1' else "000000000000";
+FM_MUX_LEFT  <= FM_LEFT  when FM_ENABLE = '1' else "000000000";
+FM_MUX_RIGHT <= FM_RIGHT when FM_ENABLE = '1' else "000000000";
 PSG_MUX_SND <= PSG_SND when PSG_ENABLE = '1' else "000000";
 
-DAC_LDATA <= std_logic_vector(signed(FM_MUX_LEFT(11)&FM_MUX_LEFT&"000") + signed("0"&PSG_MUX_SND&"0000000"));
-DAC_RDATA <= std_logic_vector(signed(FM_MUX_RIGHT(11)&FM_MUX_RIGHT&"000") + signed("0"&PSG_MUX_SND&"0000000"));
+DAC_LDATA <= std_logic_vector(signed(FM_MUX_LEFT(8)  & FM_MUX_LEFT &"000000") + signed("00"&PSG_MUX_SND&"000000"));
+DAC_RDATA <= std_logic_vector(signed(FM_MUX_RIGHT(8) & FM_MUX_RIGHT&"000000") + signed("00"&PSG_MUX_SND&"000000"));
 
 -- #############################################################################
 -- #############################################################################
@@ -878,7 +873,6 @@ TG68_RES_N <= MRST_N and ext_bootdone;
 TG68_DTACK_N <= '1' when bootState /= BOOT_DONE
 	else TG68_FLASH_DTACK_N when TG68_FLASH_SEL = '1'
 	else TG68_SDRAM_DTACK_N when TG68_SDRAM_SEL = '1' 
-	else TG68_ZRAM_DTACK_N when TG68_ZRAM_SEL = '1' 
 	else TG68_CTRL_DTACK_N when TG68_CTRL_SEL = '1' 
 	else TG68_OS_DTACK_N when TG68_OS_SEL = '1' 
 	else TG68_IO_DTACK_N when TG68_IO_SEL = '1' 
@@ -931,7 +925,6 @@ T80_BUSRQ_N <= not ZBUSREQ;
 
 T80_WAIT_N <= '0' when bootState /= BOOT_DONE
 	else not T80_SDRAM_DTACK_N when T80_SDRAM_SEL = '1'
-	else not T80_ZRAM_DTACK_N when T80_ZRAM_SEL = '1'
 	else not T80_FLASH_DTACK_N when T80_FLASH_SEL = '1'
 	else not T80_CTRL_DTACK_N when T80_CTRL_SEL = '1' 
 	else not T80_IO_DTACK_N when T80_IO_SEL = '1' 
@@ -1784,41 +1777,25 @@ begin
 end process;
 
 
+TG68_ZRAM_SEL <= '1' when TG68_A(23 downto 16) = x"A0" and TG68_A(14) = '0' and TG68_SEL = '1' else '0';
+T80_ZRAM_SEL <= '1' when T80_A(15 downto 14) = "00" and T80_MREQ_N = '0' and (T80_RD_N = '0' or T80_WR_N = '0') else '0';
 
-
+zram_a <= T80_A(12 downto 0) when T80_ZRAM_SEL = '1' else TG68_A(12 downto 1) & "0" when TG68_UDS_N = '0' else TG68_A(12 downto 1) & "1";
+zram_d <= T80_DO when T80_ZRAM_SEL = '1' else TG68_DO(15 downto 8) when TG68_UDS_N = '0' else TG68_DO(7 downto 0);
+--zram_we <= not T80_WR_N when T80_ZRAM_SEL = '1' else not TG68_RNW when TG68_ZRAM_SEL = '1' else '0';
+TG68_ZRAM_D <= zram_q & zram_q;
+T80_ZRAM_D <= zram_q;
 
 -- Z80 RAM CONTROL
-process( MRST_N, MCLK, TG68_SEL, TG68_RNW,
-	TG68_A, TG68_DO, TG68_UDS_N, TG68_LDS_N,
-	BAR, T80_A, T80_MREQ_N, T80_RD_N, T80_WR_N,
-	VBUS_SEL, VBUS_ADDR)
+process( MRST_N, MCLK )
 begin
-	if TG68_A(23 downto 16) = x"A0" -- Z80 Address Space
-		and TG68_A(14) = '0' -- Z80 RAM (gen-hw.txt lines 89 and 272-273)
-		and TG68_SEL = '1' 
-	then	
-		TG68_ZRAM_SEL <= '1';
-	else
-		TG68_ZRAM_SEL <= '0';
-	end if;
-
-	if T80_A(15 downto 14) = "00" -- Z80 RAM
-		and T80_MREQ_N = '0' and (T80_RD_N = '0' or T80_WR_N = '0')
-	then
-		T80_ZRAM_SEL <= '1';
-	else
-		T80_ZRAM_SEL <= '0';
-	end if;
-	
 	if MRST_N = '0' then
 		TG68_ZRAM_DTACK_N <= '1';
 		T80_ZRAM_DTACK_N <= '1';
-	
+
 		zram_we <= '0';
-		zram_a <= (others => '0');
-	
 		ZRC <= ZRC_IDLE;
-	
+
 	elsif rising_edge(MCLK) then
 		if TG68_ZRAM_SEL = '0' then 
 			TG68_ZRAM_DTACK_N <= '1';
@@ -1829,40 +1806,17 @@ begin
 
 		case ZRC is
 		when ZRC_IDLE =>
-			if VCLKCNT = "001" then
-				if TG68_ZRAM_SEL = '1' and TG68_ZRAM_DTACK_N = '1' then
-					if TG68_UDS_N = '0' then
-						zram_a <= TG68_A(12 downto 1) & "0";
-						zram_d <= TG68_DO(15 downto 8);
-					else
-						zram_a <= TG68_A(12 downto 1) & "1";
-						zram_d <= TG68_DO(7 downto 0);
-					end if;
-					zram_we <= not TG68_RNW;
-					ZRCP <= ZRCP_TG68;
-					ZRC <= ZRC_ACC1;
-				elsif T80_ZRAM_SEL = '1' and T80_ZRAM_DTACK_N = '1' then
-					zram_a <= T80_A(12 downto 0);
-					zram_d <= T80_DO;
-					zram_we <= not T80_WR_N;
-					ZRCP <= ZRCP_T80;
-					ZRC <= ZRC_ACC1;
-				end if;
+			if TG68_ZRAM_SEL = '1' and TG68_ZRAM_DTACK_N = '1' then
+				zram_we <= not TG68_RNW;
+				ZRC <= ZRC_ACC1;
+			elsif T80_ZRAM_SEL = '1' and T80_ZRAM_DTACK_N = '1' then
+				zram_we <= not T80_WR_N;
+				ZRC <= ZRC_ACC1;
 			end if;
 		when ZRC_ACC1 =>
 			zram_we <= '0';
-			ZRC <= ZRC_ACC2;
-		when ZRC_ACC2 =>
-			ZRC <= ZRC_ACC3;
-		when ZRC_ACC3 =>
-			case ZRCP is
-			when ZRCP_TG68 =>
-				TG68_ZRAM_D <= zram_q & zram_q;
-				TG68_ZRAM_DTACK_N <= '0';
-			when ZRCP_T80 =>
-				T80_ZRAM_D <= zram_q;
-				T80_ZRAM_DTACK_N <= '0';				
-			end case;
+			TG68_ZRAM_DTACK_N <= '0';
+			T80_ZRAM_DTACK_N <= '0';
 			ZRC <= ZRC_IDLE;
 		when others => null;
 		end case;

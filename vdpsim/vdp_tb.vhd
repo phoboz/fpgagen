@@ -68,7 +68,9 @@ signal   memclk   : std_logic := '0';
 signal   reset_n  : std_logic := '1';
 
 signal vram_req_loop: std_logic;
+signal vram_we: std_logic;
 signal vram_a: std_logic_vector(14 downto 0);
+signal vram_q: std_logic_vector(15 downto 0);
 signal vram_d: std_logic_vector(15 downto 0);
 
 signal CPU_SEL: std_logic;
@@ -103,10 +105,11 @@ begin
       DTACK_N => CPU_DTACK_N,
       
       vram_a => vram_a,
---      vram_d => ,
       vram_req => vram_req_loop,
       vram_ack => vram_req_loop,
-      vram_q => vram_d,
+      vram_q => vram_q,
+      vram_we => vram_we,
+      vram_d => vram_d,
 
       INTERLACE => '0',
 
@@ -152,16 +155,20 @@ begin
   
   memory : process (memclk)
     variable c : std_logic;
+    variable we : std_logic;
     variable a : std_logic_vector(14 downto 0);
+    variable q : std_logic_vector(15 downto 0);
     variable d : std_logic_vector(15 downto 0);
   begin
     -- wire memory
     c := memclk;
     a := vram_a;
-    vram_c(c,a,d);
+    we := vram_we;
+    d := vram_d;
+    vram_c(c,we,d,a,q);
     
     if (memclk = '0' and memclk'event) then
-      vram_d <= d;    
+      vram_q <= q;    
     end if;   
  end process memory;
 

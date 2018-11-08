@@ -35,7 +35,7 @@ video.png: vdp_tb Makefile
 	ghdl -r $< --ieee-asserts=disable
 	rm -f video.png
 	avconv -vcodec rawvideo -f rawvideo -pix_fmt rgb565 -s 855x262 -i video.rgb -f image2 -vcodec png video.png
-	convert video.png -resize 427x262! video.png
+	convert video.png -sample 855x524! video.png
 
 vdp_tb: $(OBJS)
 	ghdl -e $(FLAGS) -Wl,vram_c.o -Wl,video_c.o -Wl,cpu_c.o $@
