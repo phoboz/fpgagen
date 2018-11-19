@@ -37,6 +37,15 @@ entity sdram_controller is
 		ram68k_u_n : in std_logic;
 		ram68k_l_n : in std_logic;
 
+		sram_req : in std_logic;
+		sram_ack : out std_logic;
+		sram_we : in std_logic;
+		sram_a : in std_logic_vector(15 downto 1);
+		sram_d : in std_logic_vector(15 downto 0);
+		sram_q : out std_logic_vector(15 downto 0);
+		sram_u_n : in std_logic;
+		sram_l_n : in std_logic;
+
 		vram_req : in std_logic;
 		vram_ack : out std_logic;
 		vram_we : in std_logic;
@@ -81,6 +90,10 @@ architecture rtl of sdram_controller is
 	signal ram68k_d_u : unsigned(15 downto 0);
 	signal ram68k_q_u : unsigned(15 downto 0);
 
+	signal sram_a_u : unsigned(addrwidth downto 1);
+	signal sram_d_u : unsigned(15 downto 0);
+	signal sram_q_u : unsigned(15 downto 0);
+
 	signal vram_a_u : unsigned(addrwidth downto 1);
 	signal vram_d_u : unsigned(15 downto 0);
 	signal vram_q_u : unsigned(15 downto 0);
@@ -98,6 +111,10 @@ begin
 	ram68k_a_u <= unsigned(std_logic_vector(to_unsigned(2#100000000#, addrwidth - 15)) & ram68k_a);
 	ram68k_d_u <= unsigned(ram68k_d);
 	ram68k_q <= std_logic_vector(ram68k_q_u);
+
+	sram_a_u <= unsigned(std_logic_vector(to_unsigned(2#010000000#, addrwidth - 15)) & sram_a);
+	sram_d_u <= unsigned(sram_d);
+	sram_q <= std_logic_vector(sram_q_u);
 
 	vram_a_u <= unsigned(std_logic_vector(to_unsigned(2#110000000#, addrwidth - 15)) & vram_a);
 	vram_d_u <= unsigned(vram_d);
@@ -151,6 +168,15 @@ begin
 			ram68k_q => ram68k_q_u,
 			ram68k_u_n => ram68k_u_n,
 			ram68k_l_n => ram68k_l_n,
+
+			sram_req => sram_req,
+			sram_ack => sram_ack,
+			sram_we => sram_we,
+			sram_a => sram_a_u,
+			sram_d => sram_d_u,
+			sram_q => sram_q_u,
+			sram_u_n => sram_u_n,
+			sram_l_n => sram_l_n,
 
 			vram_req => vram_req,
 			vram_ack => vram_ack,

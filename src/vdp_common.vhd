@@ -62,6 +62,12 @@ constant HSYNC_START_H40        : integer := H_DISP_START_H40 + H_TOTAL_WIDTH_H4
 constant HSYNC_END_H32          : integer := H_DISP_START_H32 + 24 - 8; --498; -- -14
 constant HSYNC_END_H40          : integer := H_DISP_START_H40 + 24 - 8; --492; -- -20
 
+constant VSYNC_HSTART_O_H32     : integer := HSYNC_START_H32;
+constant VSYNC_HSTART_O_H40     : integer := HSYNC_START_H40;
+
+constant VSYNC_HSTART_E_H32     : integer := VSYNC_HSTART_O_H32 - 180;
+constant VSYNC_HSTART_E_H40     : integer := VSYNC_HSTART_O_H40 - 180;
+
 constant H_DISP_WIDTH_H32       : integer := 256;
 constant H_DISP_WIDTH_H40       : integer := 320;
 
@@ -85,5 +91,14 @@ constant VSYNC_START_NTSC_V30	: integer := 466;
 
 constant NTSC_LINES             : integer := 262;
 constant PAL_LINES              : integer := 313;
+
+constant HSCROLL_READ_H32       : integer := 498;
+constant HSCROLL_READ_H40       : integer := 498;
+
+constant OBJ_MAX_FRAME_H32      : integer := 64;
+constant OBJ_MAX_FRAME_H40      : integer := 80;
+
+constant OBJ_MAX_LINE_H32       : integer := 16;
+constant OBJ_MAX_LINE_H40       : integer := 20;
 
 end vdp_common;

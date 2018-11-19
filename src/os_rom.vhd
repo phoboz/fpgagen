@@ -116,7 +116,7 @@ when x"5F" => D <= x"4e75";
 when others => D <= x"ffff";
 			end case;
 		else
-			D <= (others => 'Z');
+			D <= (others => '0');
 		end if;
 	end process;
 

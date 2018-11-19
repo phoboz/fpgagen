@@ -47,7 +47,7 @@ set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 144
 set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 1
 set_global_assignment -name ENABLE_SIGNALTAP OFF
-set_global_assignment -name USE_SIGNALTAP_FILE stp1.stp
+set_global_assignment -name USE_SIGNALTAP_FILE ../../syn/mist/fx68.stp
 set_location_assignment PIN_54 -to CLOCK_27[0]
 set_location_assignment PIN_55 -to CLOCK_27[1]
 set_location_assignment PIN_135 -to VGA_R[0]
@@ -64,22 +64,10 @@ set_location_assignment PIN_121 -to VGA_B[2]
 set_location_assignment PIN_125 -to VGA_B[3]
 set_location_assignment PIN_119 -to VGA_HS
 set_location_assignment PIN_136 -to VGA_VS
-set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS OFF
-set_global_assignment -name TIMEQUEST_DO_CCPP_REMOVAL ON
 set_global_assignment -name ADV_NETLIST_OPT_SYNTH_WYSIWYG_REMAP ON
 set_global_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION ALWAYS
 set_global_assignment -name EDA_TIME_SCALE "1 ps" -section_id eda_simulation
 set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVTTL"
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_BA_0 -section_id DRAM_Other
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_BA_1 -section_id DRAM_Other
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_CAS_N -section_id DRAM_Other
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_CKE -section_id DRAM_Other
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_CLK -section_id DRAM_Other
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_CS_N -section_id DRAM_Other
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_LDQM -section_id DRAM_Other
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_RAS_N -section_id DRAM_Other
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_UDQM -section_id DRAM_Other
-set_global_assignment -name ASSIGNMENT_GROUP_MEMBER DRAM_WE_N -section_id DRAM_Other
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "NO HEAT SINK WITH STILL AIR"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_global_assignment -name USE_CONFIGURATION_DEVICE OFF
@@ -322,7 +310,7 @@ set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
 set_global_assignment -name ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM
 set_global_assignment -name ROUTER_CLOCKING_TOPOLOGY_ANALYSIS ON
 set_global_assignment -name OPTIMIZE_POWER_DURING_SYNTHESIS OFF
-set_global_assignment -name SEED 2
+set_global_assignment -name SEED 1
 set_instance_assignment -name FAST_INPUT_REGISTER ON -to SDRAM_DQ[*]
 set_location_assignment PLL_1 -to "pll:U00|altpll:altpll_component|pll_altpll:auto_generated"
 set_global_assignment -name ENABLE_CONFIGURATION_PINS OFF
@@ -331,6 +319,12 @@ set_global_assignment -name ENABLE_BOOT_SEL_PIN OFF
 set_global_assignment -name CYCLONEIII_CONFIGURATION_SCHEME "PASSIVE SERIAL"
 set_global_assignment -name FORCE_CONFIGURATION_VCCIO ON
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY ../../syn/mist
+set_global_assignment -name PHYSICAL_SYNTHESIS_EFFORT NORMAL
+set_global_assignment -name TIMEQUEST_DO_REPORT_TIMING OFF
+set_global_assignment -name TIMEQUEST_DO_CCPP_REMOVAL ON
+set_global_assignment -name SYSTEMVERILOG_FILE ../../src/fx68k/uaddrPla.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../src/fx68k/fx68kAlu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../../src/fx68k/fx68k.sv
 set_global_assignment -name QIP_FILE ../../src/T80/T80.qip
 set_global_assignment -name VHDL_FILE ../../../Board/mist/MIST_Toplevel.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE ../../Board/mist/rgb2ypbpr.sv
@@ -342,18 +336,13 @@ set_global_assignment -name VERILOG_FILE ../../Board/mist/scandoubler.v
 set_global_assignment -name VHDL_FILE ../../src/psg/psg_tone.vhd
 set_global_assignment -name VHDL_FILE ../../src/psg/psg_noise.vhd
 set_global_assignment -name VHDL_FILE ../../src/psg/psg.vhd
-set_global_assignment -name VHDL_FILE ../../src/TG68KdotC_Kernel.vhd
-set_global_assignment -name VHDL_FILE ../../src/TG68K_Pack.vhd
-set_global_assignment -name VHDL_FILE ../../src/TG68K_ALU.vhd
 set_global_assignment -name VHDL_FILE ../../src/virtual_toplevel.vhd
 set_global_assignment -name VHDL_FILE ../../src/vdp_common.vhd
 set_global_assignment -name VHDL_FILE ../../src/vdp.vhd
 set_global_assignment -name VHDL_FILE ../../src/sdram_controller.vhd
 set_global_assignment -name VHDL_FILE ../../src/os_rom.vhd
 set_global_assignment -name VHDL_FILE ../../src/gen_io.vhd
-set_global_assignment -name VHDL_FILE ../../src/gen_fm.vhd
 set_global_assignment -name VHDL_FILE ../../src/chameleon_gen_sdram.vhd
-set_global_assignment -name VHDL_FILE ../../src/zram.vhd
 set_global_assignment -name QIP_FILE ../../Board/mist/pll.qip
 set_global_assignment -name SIGNALTAP_FILE stp2.stp
 set_global_assignment -name VERILOG_FILE ../../src/TwoWayCache.v
@@ -361,4 +350,5 @@ set_global_assignment -name VHDL_FILE ../../src/DualPortRAM.vhd
 set_global_assignment -name QIP_FILE ../../jt12/hdl/jt12.qip
 set_global_assignment -name SDC_FILE ../../Board/mist/constraints.sdc
 set_global_assignment -name CDF_FILE Chain1.cdf
+set_global_assignment -name SIGNALTAP_FILE ../../syn/mist/fx68.stp
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

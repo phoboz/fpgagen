@@ -9,9 +9,9 @@
 
 // The address is broken down as follows:
 //   bit 0 is irrelevant because we're working in 16-bit words.
-//   bits 3:1 specify which word of a burst we're interested in.
-//   Bits 10:4 specify the seven bit address of the cachelines;
-//     this will map to {1'b0,addr[8:3]} and {1;b1,addr[8:3]} respectively.
+//   bits 2:1 specify which word of a burst we're interested in.
+//   Bits 10:3 specify the eight bit address of the cachelines;
+//     this will map to {1'b0,addr[10:3]} and {1;b1,addr[10:3]} respectively.
 //   Bits 25:11 have to be stored in the tag, which, it turns out is no problem,
 //     since we can use have 18-bit wide words.  The highest bit will be used as
 //     a "most recently used" flag, leaving one bit spare, so we can support 64 meg
@@ -41,7 +41,7 @@ module TwoWayCache
 // States for state machine
 localparam	INIT1=0, INIT2=1, WAITING=2, WAITRD=3, PAUSE1=4;
 localparam	WRITE1=5, WRITE2=6, WAITFILL=7, FILL2=8, FILL3=9;
-localparam 	FILL4=10, FILL5=11, FILL6=12, FILL7=13, FILL8=14, FILL9=15;
+localparam 	FILL4=10, FILL5=11;
 
 reg [15:0] state = INIT1;
 reg init;
@@ -81,19 +81,19 @@ assign data_valid2 = data_port2_r[17] & data_port2_r[16];
 
 // BlockRAM and related signals for tags.
 
-wire [7:0] tag_port1_addr;
-wire [7:0] tag_port2_addr;
-wire [17:0] tag_port1_r;
-wire [17:0] tag_port2_r;
-wire [17:0] tag_port1_w;
-wire [17:0] tag_port2_w;
+wire [8:0] tag_port1_addr;
+wire [8:0] tag_port2_addr;
+wire [15:0] tag_port1_r;
+wire [15:0] tag_port2_r;
+wire [15:0] tag_port1_w;
+wire [15:0] tag_port2_w;
 
 reg tag_wren1;
 reg tag_wren2;
 reg tag_mru1;
 
 defparam tagram.addrbits = 9;
-defparam tagram.databits = 18;
+defparam tagram.databits = 16;
 
 DualPortRAM tagram(
 	.clock(clk),
@@ -107,15 +107,15 @@ DualPortRAM tagram(
 	.wren_b(tag_wren2)
 );
 
-//   bits 3:1 specify which word of a burst we're interested in.
-//   Bits 10:4 specify the seven bit address of the cachelines;
+//   bits 2:1 specify which word of a burst we're interested in.
+//   Bits 10:3 specify the eight bit address of the cachelines;
 //   Since we're building a 2-way cache, we'll map this to 
-//   {1'b0,addr[10:4]} and {1;b1,addr[10:4]} respectively.
+//   {1'b0,addr[10:3]} and {1;b1,addr[10:3]} respectively.
 
 wire [10:0] cacheline1;
 wire [10:0] cacheline2;
 
-reg [10:4] latched_cpuaddr;
+reg [10:3] latched_cpuaddr;
 reg [15:0] firstword;
 
 assign data_to_cpu = (readword_burst ? firstword :
@@ -125,16 +125,16 @@ assign cpu_cachevalid = ((tag_hit1 && data_valid1) || (tag_hit2 && data_valid2))
 								
 reg readword_burst; // Set to 1 when the lsb of the cache address should
 							// track the SDRAM controller.
-reg [2:0] readword;
+reg [1:0] readword;
 
-assign cacheline1 = {1'b0,cpu_addr[10:4],(readword_burst ? readword : cpu_addr[3:1])};
-assign cacheline2 = {1'b1,cpu_addr[10:4],(readword_burst ? readword : cpu_addr[3:1])};
+assign cacheline1 = {1'b0,cpu_addr[10:3],(readword_burst ? readword : cpu_addr[2:1])};
+assign cacheline2 = {1'b1,cpu_addr[10:3],(readword_burst ? readword : cpu_addr[2:1])};
 
-// We share each tag between all eight words of a cacheline.  We therefore only need
+// We share each tag between all four words of a cacheline.  We therefore only need
 // one M9K tag RAM for four M9Ks of data RAM.
 
-assign tag_port1_addr = cacheline1[10:3];
-assign tag_port2_addr = cacheline2[10:3];
+assign tag_port1_addr = cacheline1[10:2];
+assign tag_port2_addr = cacheline2[10:2];
 
 // The first port contains the mru flag, so we have to write to it on every
 // access.  The second tag only needs writing when a cacheline in the second
@@ -144,8 +144,8 @@ assign tag_port2_addr = cacheline2[10:3];
 // the state of the mru flag.
 // (Writing both ports on every access for troubleshooting)
 
-assign tag_port1_w = {tag_mru1,(tag_mru1 ? cpu_addr[25:9] : tag_port1_r[16:0])};
-assign tag_port2_w = {1'b0,(!tag_mru1 ? cpu_addr[25:9] : tag_port2_r[16:0])};
+assign tag_port1_w = {tag_mru1,(tag_mru1 ? cpu_addr[25:11] : tag_port1_r[14:0])};
+assign tag_port2_w = {1'b0,(!tag_mru1 ? cpu_addr[25:11] : tag_port2_r[14:0])};
 //assign tag_port2_w = {1'b0,cpu_addr[25:9]};
 
 
@@ -154,8 +154,8 @@ assign tag_port2_w = {1'b0,(!tag_mru1 ? cpu_addr[25:9] : tag_port2_r[16:0])};
 wire tag_hit1;
 wire tag_hit2;
 
-assign tag_hit1 = tag_port1_r[16:0]==cpu_addr[25:9];
-assign tag_hit2 = tag_port2_r[16:0]==cpu_addr[25:9];
+assign tag_hit1 = tag_port1_r[14:0]==cpu_addr[25:11];
+assign tag_hit2 = tag_port2_r[14:0]==cpu_addr[25:11];
 
 
 // In the data blockram the lower two bits of the address determine
@@ -300,20 +300,20 @@ begin
 					// If either tag matches, but the corresponding data is stale,
 					// we re-use the stale cacheline.
 
-					latched_cpuaddr[10:4]<=cpu_addr[10:4];
+					latched_cpuaddr[10:3]<=cpu_addr[10:3];
 
 					if(tag_hit1)
 						tag_mru1<=1'b1;	// Way 1 contains stale data
 					else if(tag_hit2)
 						tag_mru1<=1'b0;	// Way 2 contains stale data
 					else
-						tag_mru1<=!tag_port1_r[17];
+						tag_mru1<=!tag_port1_r[15];
 
 					tag_wren1<=1'b1;
 					tag_wren2<=1'b1;
-					// If r[17] is 1, tag_mru1 is 0, so we need to write to the second tag.
+					// If r[15] is 1, tag_mru1 is 0, so we need to write to the second tag.
 					// FIXME - might be simpler to just write every cycle and switch between new and old data.
-//					tag_wren2<=tag_port1_r[17];
+//					tag_wren2<=tag_port1_r[15];
 
 					sdram_req<=1'b1;
 					state<=WAITFILL;
@@ -331,13 +331,13 @@ begin
 		begin
 			readword_burst<=1'b1;
 			// In the interests of performance, read the word we're waiting for first.
-			readword<=cpu_addr[3:1];
+			readword<=cpu_addr[2:1];
 
 			if (sdram_fill==1'b1)
 			begin
 				sdram_req<=1'b0;
 				firstword <= data_from_sdram;
-				cpu_ack<=1'b1; // Too soon?
+				//cpu_ack<=1'b1; // Too soon?
 
 				// write first word to Cache...
 				data_ports_w<={2'b11,data_from_sdram};
@@ -349,7 +349,7 @@ begin
 
 		FILL2:
 		begin
-			cpu_ack<=cpu_req; // Maintain ack signal if necessary
+			//cpu_ack<=cpu_req; // Maintain ack signal if necessary
 			// write second word to Cache...
 			readword_burst<=1'b1;
 			readword<=readword+1'b1;
@@ -361,7 +361,7 @@ begin
 
 		FILL3:
 		begin
-			cpu_ack<=cpu_req; // Maintain ack signal if necessary
+			//cpu_ack<=cpu_req; // Maintain ack signal if necessary
 			// write third word to Cache...
 			readword_burst<=1'b1;
 			readword<=readword+1'b1;
@@ -373,7 +373,7 @@ begin
 
 		FILL4:
 		begin
-			cpu_ack<=cpu_req; // Maintain ack signal if necessary - that's four cycles, should be plenty
+			cpu_ack<=1'b1;
 			readword_burst<=1'b1;
 			readword<=readword+1'b1;
 			data_ports_w<={2'b11,data_from_sdram};
@@ -384,47 +384,7 @@ begin
 
 		FILL5:
 		begin
-			readword_burst<=1'b1;
-			readword<=readword+1'b1;
-			data_ports_w<={2'b11,data_from_sdram};
-			data_wren1<=tag_mru1;
-			data_wren2<=!tag_mru1;
-			state<=FILL6;
-		end
-
-		FILL6:
-		begin
-			readword_burst<=1'b1;
-			readword<=readword+1'b1;
-			data_ports_w<={2'b11,data_from_sdram};
-			data_wren1<=tag_mru1;
-			data_wren2<=!tag_mru1;
-			state<=FILL7;
-		end
-
-		FILL7:
-		begin
-			readword_burst<=1'b1;
-			readword<=readword+1'b1;
-			data_ports_w<={2'b11,data_from_sdram};
-			data_wren1<=tag_mru1;
-			data_wren2<=!tag_mru1;
-			state<=FILL8;
-		end
-		
-		FILL8:
-		begin
-			readword_burst<=1'b1;
-			readword<=readword+1'b1;
-			data_ports_w<={2'b11,data_from_sdram};
-			data_wren1<=tag_mru1;
-			data_wren2<=!tag_mru1;
-			state<=FILL9;
-		end
-		
-		FILL9:
-		begin
-			readword<=cpu_addr[3:1];
+			readword<=cpu_addr[2:1];
 //			state<=WAITING;
 			state<=PAUSE1; // Allow one extra clock after clearing readword_burst
 		end

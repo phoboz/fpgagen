@@ -113,6 +113,8 @@ constant CONF_STR : string :=
     "O6,Joystick swap,Off,On;"&
     "O9,Swap Y axis,Off,On;"&
     "OA,Only 3 buttons,Off,On;"&
+    "O3,VRAM Speed,Slow,Fast;"&
+    "OD,Fake EEPROM,Off,On;"&
     "O4,FM Sound,Enable,Disable;"&
     "O5,PSG Sound,Enable,Disable;"&
     "T0,Reset;";
@@ -271,6 +273,8 @@ ext_sw(5) <= status(7); --Export
 ext_sw(6) <= not status(8); --PAL
 ext_sw(7) <= status(9); --swap Y
 ext_sw(8) <= status(10); --3 buttons
+ext_sw(9) <= not status(3); -- VRAM speed emulation
+ext_sw(10) <= status(13); -- Fake EEPROM
 
 --SDRAM_A(12)<='0';
 virtualtoplevel : entity work.Virtual_Toplevel

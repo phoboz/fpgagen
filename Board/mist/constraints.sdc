@@ -103,8 +103,10 @@ set_multicycle_path -from [get_clocks {U00|altpll_component|auto_generated|pll1|
 #set_multicycle_path -from [get_clocks {sysclk}] -to [get_clocks {memclk}] -setup 2
 #set_multicycle_path -from [get_clocks {sysclk}] -to [get_clocks {memclk}] -hold 2
 
-set_multicycle_path -from {Virtual_Toplevel:virtualtoplevel|TG68KdotC_Kernel:tg68|*} -setup 2
-set_multicycle_path -from {Virtual_Toplevel:virtualtoplevel|TG68KdotC_Kernel:tg68|*} -hold 2
+set_multicycle_path -start -setup -from [get_keepers Virtual_Toplevel:virtualtoplevel|fx68k:fx68k_inst|Ir[*]] -to [get_keepers Virtual_Toplevel:virtualtoplevel|fx68k:fx68k_inst|microAddr[*]] 2
+set_multicycle_path -start -hold -from [get_keepers Virtual_Toplevel:virtualtoplevel|fx68k:fx68k_inst|Ir[*]] -to [get_keepers Virtual_Toplevel:virtualtoplevel|fx68k:fx68k_inst|microAddr[*]] 1
+set_multicycle_path -start -setup -from [get_keepers Virtual_Toplevel:virtualtoplevel|fx68k:fx68k_inst|Ir[*]] -to [get_keepers Virtual_Toplevel:virtualtoplevel|fx68k:fx68k_inst|nanoAddr[*]] 2
+set_multicycle_path -start -hold -from [get_keepers Virtual_Toplevel:virtualtoplevel|fx68k:fx68k_inst|Ir[*]] -to [get_keepers Virtual_Toplevel:virtualtoplevel|fx68k:fx68k_inst|nanoAddr[*]] 1
 
 set_multicycle_path -from {Virtual_Toplevel:virtualtoplevel|T80pa:t80|T80:u0|*} -setup 2
 set_multicycle_path -from {Virtual_Toplevel:virtualtoplevel|T80pa:t80|T80:u0|*} -hold 2

@@ -25,8 +25,6 @@ component vdp
                 SEL                     : in std_logic;
                 A                       : in std_logic_vector(4 downto 0);
                 RNW                     : in std_logic;
-                UDS_N           : in std_logic;
-                LDS_N           : in std_logic;
                 DI                      : in std_logic_vector(15 downto 0);
                 DO                      : out std_logic_vector(15 downto 0);
                 DTACK_N         : out std_logic;
@@ -39,8 +37,6 @@ component vdp
                 vram_q : in std_logic_vector(15 downto 0);
                 vram_u_n : out std_logic;
                 vram_l_n : out std_logic;
-
-                INTERLACE       : in std_logic;
 
                 HINT            : out std_logic;
                 INTACK          : in std_logic;
@@ -99,8 +95,6 @@ begin
       SEL => CPU_SEL,
       A => CPU_A,
       RNW => CPU_RNW,
-      UDS_N => CPU_UDS_N,
-      LDS_N => CPU_LDS_N,
       DI => CPU_DI,
       DTACK_N => CPU_DTACK_N,
       
@@ -110,8 +104,6 @@ begin
       vram_q => vram_q,
       vram_we => vram_we,
       vram_d => vram_d,
-
-      INTERLACE => '0',
 
       INTACK => '0',
 
