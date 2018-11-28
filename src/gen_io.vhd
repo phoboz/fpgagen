@@ -180,38 +180,17 @@ begin
 				when x"0" =>
 					VERS_D <= WD;
 				when x"1" =>
-					DATA(7) <= WD(7);
+					DATA <= WD;
 					if CTLA(6) = '1' then 
-						DATA(6) <= WD(6);
 						if(DATA(6)='0' and WD(6)='1') then JTMR1 <= 0; JCNT1 <= JCNT1 + 1; end if;
 					end if;
-					if CTLA(5) = '1' then DATA(5) <= WD(5); end if;
-					if CTLA(4) = '1' then DATA(4) <= WD(4); end if;
-					if CTLA(3) = '1' then DATA(3) <= WD(3); end if;
-					if CTLA(2) = '1' then DATA(2) <= WD(2); end if;
-					if CTLA(1) = '1' then DATA(1) <= WD(1); end if;
-					if CTLA(0) = '1' then DATA(0) <= WD(0); end if;
 				when x"2" =>
-					DATB(7) <= WD(7);
+					DATB <= WD;
 					if CTLB(6) = '1' then
-						DATB(6) <= WD(6);
 						if(DATB(6)='0' and WD(6)='1') then JTMR2 <= 0; JCNT2 <= JCNT2 + 1; end if;
 					end if;
-					if CTLB(5) = '1' then DATB(5) <= WD(5); end if;
-					if CTLB(4) = '1' then DATB(4) <= WD(4); end if;
-					if CTLB(3) = '1' then DATB(3) <= WD(3); end if;
-					if CTLB(2) = '1' then DATB(2) <= WD(2); end if;
-					if CTLB(1) = '1' then DATB(1) <= WD(1); end if;
-					if CTLB(0) = '1' then DATB(0) <= WD(0); end if;
 				when x"3" =>
-					DATC(7) <= WD(7);
-					if CTLC(6) = '1' then DATC(6) <= WD(6); end if;
-					if CTLC(5) = '1' then DATC(5) <= WD(5); end if;
-					if CTLC(4) = '1' then DATC(4) <= WD(4); end if;
-					if CTLC(3) = '1' then DATC(3) <= WD(3); end if;
-					if CTLC(2) = '1' then DATC(2) <= WD(2); end if;
-					if CTLC(1) = '1' then DATC(1) <= WD(1); end if;
-					if CTLC(0) = '1' then DATC(0) <= WD(0); end if;
+					DATC <= WD;
 				when x"4" =>
 					CTLA <= WD;
 				when x"5" =>

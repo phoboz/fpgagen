@@ -308,6 +308,7 @@ signal DMA_SOURCE	: std_logic_vector(15 downto 0);
 ----------------------------------------------------------------
 signal V_ACTIVE		: std_logic;
 signal Y			: std_logic_vector(7 downto 0);
+signal BG_Y		: std_logic_vector(8 downto 0);
 
 signal PRE_V_ACTIVE	: std_logic;
 signal PRE_Y		: std_logic_vector(8 downto 0);
@@ -401,7 +402,7 @@ signal BGB_COLINFO_Q_B		: std_logic_vector(6 downto 0);
 
 signal BGB_X		: std_logic_vector(9 downto 0);
 signal BGB_POS		: std_logic_vector(9 downto 0);
-signal BGB_Y		: std_logic_vector(9 downto 0);
+signal BGB_Y		: std_logic_vector(10 downto 0);
 signal T_BGB_PRI	: std_logic;
 signal T_BGB_PAL	: std_logic_vector(1 downto 0);
 signal T_BGB_COLNO	: std_logic_vector(3 downto 0);
@@ -414,7 +415,7 @@ signal BGB_VRAM_DO	: std_logic_vector(15 downto 0);
 signal BGB_VRAM_DO_REG	: std_logic_vector(15 downto 0);
 signal BGB_SEL		: std_logic;
 signal BGB_DTACK_N	: std_logic;
-signal BGB_VSRAM1_LATCH : std_logic_vector(9 downto 0);
+signal BGB_VSRAM1_LATCH : std_logic_vector(10 downto 0);
 
 -- BACKGROUND A
 type bgac_t is (
@@ -439,7 +440,7 @@ signal BGA_COLINFO_Q_B		: std_logic_vector(6 downto 0);
 
 signal BGA_X		: std_logic_vector(9 downto 0);
 signal BGA_POS		: std_logic_vector(9 downto 0);
-signal BGA_Y		: std_logic_vector(9 downto 0);
+signal BGA_Y		: std_logic_vector(10 downto 0);
 signal T_BGA_PRI	: std_logic;
 signal T_BGA_PAL	: std_logic_vector(1 downto 0);
 signal T_BGA_COLNO	: std_logic_vector(3 downto 0);
@@ -452,7 +453,7 @@ signal BGA_VRAM_DO	: std_logic_vector(15 downto 0);
 signal BGA_VRAM_DO_REG	: std_logic_vector(15 downto 0);
 signal BGA_SEL		: std_logic;
 signal BGA_DTACK_N	: std_logic;
-signal BGA_VSRAM0_LATCH : std_logic_vector(9 downto 0);
+signal BGA_VSRAM0_LATCH : std_logic_vector(10 downto 0);
 
 signal WIN_V		: std_logic;
 signal WIN_H		: std_logic;
@@ -569,9 +570,6 @@ signal SP3E_ACTIVATE	: std_logic;
 type sp3c_t is (
 	SP3C_INIT,
 	SP3C_NEXT,
-	SP3C_Y_RD,
-	SP3C_CALC_XY,
-	SP3C_CALC_BASE,
 	SP3C_LOOP,
 	SP3C_PLOT_RD,
 	SP3C_PLOT,
@@ -589,21 +587,17 @@ signal SP3_DTACK_N	: std_logic;
 signal OBJ_PIX			: std_logic_vector(8 downto 0);
 signal OBJ_NO			: std_logic_vector(4 downto 0);
 
-signal OBJ_Y_OFS		: std_logic_vector(5 downto 0);
 signal OBJ_LINK			: std_logic_vector(6 downto 0);
 
 signal OBJ_HS			: std_logic_vector(1 downto 0);
 signal OBJ_VS			: std_logic_vector(1 downto 0);
-signal OBJ_X			: std_logic_vector(8 downto 0);
 signal OBJ_MASKED		: std_logic;
 signal OBJ_VALID_X	: std_logic;
 signal OBJ_DOT_OVERFLOW	: std_logic;
 signal OBJ_X_OFS		: std_logic_vector(4 downto 0);
 signal OBJ_PRI			: std_logic;
 signal OBJ_PAL			: std_logic_vector(1 downto 0);
-signal OBJ_VF			: std_logic;
 signal OBJ_HF			: std_logic;
-signal OBJ_PAT			: std_logic_vector(10 downto 0);
 signal OBJ_POS			: std_logic_vector(8 downto 0);
 signal OBJ_TILEBASE		: std_logic_vector(14 downto 0);
 signal OBJ_COLNO		: std_logic_vector(3 downto 0);
@@ -1145,8 +1139,11 @@ end process;
 process( RST_N, CLK )
 variable V_BGB_XSTART	: std_logic_vector(9 downto 0);
 variable V_BGB_BASE		: std_logic_vector(15 downto 0);
-variable vscroll_mask	: std_logic_vector(9 downto 0);
+variable vscroll_mask	: std_logic_vector(10 downto 0);
 variable hscroll_mask	: std_logic_vector(9 downto 0);
+variable vscroll_val	: std_logic_vector(10 downto 0);
+variable y_cells	: std_logic_vector(6 downto 0);
+
 -- synthesis translate_off
 file F		: text open write_mode is "bgb_dbg.out";
 variable L	: line;
@@ -1168,10 +1165,14 @@ begin
 				if HSIZE = "10" then
 					-- illegal mode, 32x1
 					hscroll_mask := "0011111111";
-					vscroll_mask := "0000000111";
+					vscroll_mask := "00000000111";
 				else
 					hscroll_mask := (HSIZE & "11111111");
-					vscroll_mask := (VSIZE & "11111111");
+					vscroll_mask := '0' & (VSIZE & "11111111");
+				end if;
+
+				if LSM = "11" then
+					vscroll_mask := vscroll_mask(9 downto 0) & '1';
 				end if;
 
 				case HSCR is -- Horizontal scroll mode
@@ -1200,22 +1201,32 @@ begin
 			when BGBC_CALC_Y =>
 				BGB_COLINFO_WE_A <= '0';
 				if BGB_POS(9) = '1' or VSCR = '0' then
-					BGB_Y <= (BGB_VSRAM1_LATCH + Y) and vscroll_mask;
+					if LSM = "11" then
+						vscroll_val := BGB_VSRAM1_LATCH(10 downto 0);
+					else
+						vscroll_val := '0' & BGB_VSRAM1_LATCH(9 downto 0);
+					end if;
 				elsif LSM = "11" then
-					BGB_Y <= (VSRAM( CONV_INTEGER(BGB_POS(8 downto 4) & "1") )(10 downto 1) + Y) and vscroll_mask;
+					vscroll_val := VSRAM( CONV_INTEGER(BGB_POS(8 downto 4) & "1") )(10 downto 0);
 				else
-					BGB_Y <= (VSRAM( CONV_INTEGER(BGB_POS(8 downto 4) & "1") )(9 downto 0) + Y) and vscroll_mask;
+					vscroll_val := '0' & VSRAM( CONV_INTEGER(BGB_POS(8 downto 4) & "1") )(9 downto 0);
 				end if;
+				BGB_Y <= (BG_Y + vscroll_val) and vscroll_mask;
 				BGBC <= BGBC_CALC_BASE;
 
 			when BGBC_CALC_BASE =>
+				if LSM = "11" then
+					y_cells := BGB_Y(10 downto 4);
+				else
+					y_cells := BGB_Y(9 downto 3);
+				end if;
 				case HSIZE is
 				when "00"|"10" => -- HS 32 cells
-					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + (BGB_Y(9 downto 3) & "00000" & "0");
+					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + (y_cells & "00000" & "0");
 				when "01" => -- HS 64 cells
-					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + (BGB_Y(9 downto 3) & "000000" & "0");
+					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + (y_cells & "000000" & "0");
 				when "11" => -- HS 128 cells
-					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + (BGB_Y(9 downto 3) & "0000000" & "0");
+					V_BGB_BASE := (NTBB & "0000000000000") + (BGB_X(9 downto 3) & "0") + (y_cells & "0000000" & "0");
 				when others => null;
 				end case;
 				BGB_VRAM_ADDR <= V_BGB_BASE(15 downto 1);
@@ -1244,9 +1255,9 @@ begin
 					BGB_HF <= BGB_VRAM_DO(11);
 					if LSM = "11" then
 						if BGB_VRAM_DO(12) = '1' then	-- VF
-							BGB_TILEBASE <= BGB_VRAM_DO(9 downto 0) & not(BGB_Y(2 downto 0)) & not FIELD & "00";
+							BGB_TILEBASE <= BGB_VRAM_DO(9 downto 0) & not(BGB_Y(3 downto 0)) & "00";
 						else
-							BGB_TILEBASE <= BGB_VRAM_DO(9 downto 0) & BGB_Y(2 downto 0) & FIELD & "00";
+							BGB_TILEBASE <= BGB_VRAM_DO(9 downto 0) & BGB_Y(3 downto 0) & "00";
 						end if;
 					else
 						if BGB_VRAM_DO(12) = '1' then	-- VF
@@ -1355,8 +1366,10 @@ process( RST_N, CLK )
 variable V_BGA_XSTART	: std_logic_vector(9 downto 0);
 variable V_BGA_XBASE		: std_logic_vector(15 downto 0);
 variable V_BGA_BASE		: std_logic_vector(15 downto 0);
-variable vscroll_mask	: std_logic_vector(9 downto 0);
+variable vscroll_mask	: std_logic_vector(10 downto 0);
 variable hscroll_mask	: std_logic_vector(9 downto 0);
+variable vscroll_val    : std_logic_vector(10 downto 0);
+variable y_cells    : std_logic_vector(6 downto 0);
 -- synthesis translate_off
 file F		: text open write_mode is "bga_dbg.out";
 variable L	: line;
@@ -1378,10 +1391,14 @@ begin
 				if HSIZE = "10" then
 					-- illegal mode, 32x1
 					hscroll_mask := "0011111111";
-					vscroll_mask := "0000000111";
+					vscroll_mask := "00000000111";
 				else
 					hscroll_mask := (HSIZE & "11111111");
-					vscroll_mask := (VSIZE & "11111111");
+					vscroll_mask := '0' & (VSIZE & "11111111");
+				end if;
+
+				if LSM = "11" then
+					vscroll_mask := vscroll_mask(9 downto 0) & '1';
 				end if;
 
 				if Y(2 downto 0) = "000" then
@@ -1396,7 +1413,7 @@ begin
 				else
 					WIN_H <= not(WRIGT);
 				end if;
-			
+
 			case HSCR is -- Horizontal scroll mode
 				when "00" =>
 					BGA_VRAM_ADDR <= HSCB & "000000000";
@@ -1423,35 +1440,46 @@ begin
 			when BGAC_CALC_Y =>
 				BGA_COLINFO_WE_A <= '0';
 				if WIN_H = '1' or WIN_V = '1' then
-					BGA_Y <= "00" & Y;					
+					BGA_Y <= "00" & BG_Y;
 				else
 					if BGA_POS(9) = '1' or VSCR = '0' then
-						BGA_Y <= (BGA_VSRAM0_LATCH + Y) and vscroll_mask;
+						if LSM = "11" then
+							vscroll_val := BGA_VSRAM0_LATCH(10 downto 0);
+						else
+							vscroll_val := '0' & BGA_VSRAM0_LATCH(9 downto 0);
+						end if;
 					elsif LSM = "11" then
-						BGA_Y <= (VSRAM( CONV_INTEGER(BGA_POS(8 downto 4) & "0") )(10 downto 1) + Y) and vscroll_mask;
+						vscroll_val := VSRAM( CONV_INTEGER(BGA_POS(8 downto 4) & "0") )(10 downto 0);
 					else
-						BGA_Y <= (VSRAM( CONV_INTEGER(BGA_POS(8 downto 4) & "0") )(9 downto 0) + Y) and vscroll_mask;
+						vscroll_val := '0' & VSRAM( CONV_INTEGER(BGA_POS(8 downto 4) & "0") )(9 downto 0);
 					end if;
+					BGA_Y <= (BG_Y + vscroll_val) and vscroll_mask;
 				end if;
 				BGAC <= BGAC_CALC_BASE;
 				
 			when BGAC_CALC_BASE =>
+				if LSM = "11" then
+					y_cells := BGA_Y(10 downto 4);
+				else
+					y_cells := BGA_Y(9 downto 3);
+				end if;
+
 				if WIN_H = '1' or WIN_V = '1' then
 					V_BGA_XBASE := (NTWB & "00000000000") + (BGA_POS(9 downto 3) & "0");
 					if H40 = '0' then -- WIN is 32 tiles wide in H32 mode
-						V_BGA_BASE := V_BGA_XBASE + (BGA_Y(9 downto 3) & "00000" & "0");
+						V_BGA_BASE := V_BGA_XBASE + (y_cells & "00000" & "0");
 					else              -- WIN is 64 tiles wide in H40 mode
-						V_BGA_BASE := V_BGA_XBASE + (BGA_Y(9 downto 3) & "000000" & "0");
+						V_BGA_BASE := V_BGA_XBASE + (y_cells & "000000" & "0");
 					end if;
 			   else
 					V_BGA_XBASE := (NTAB & "0000000000000") + (BGA_X(9 downto 3) & "0");
 					case HSIZE is
 					when "00"|"10" => -- HS 32 cells
-						V_BGA_BASE := V_BGA_XBASE + (BGA_Y(9 downto 3) & "00000" & "0");
+						V_BGA_BASE := V_BGA_XBASE + (y_cells & "00000" & "0");
 					when "01" => -- HS 64 cells
-						V_BGA_BASE := V_BGA_XBASE + (BGA_Y(9 downto 3) & "000000" & "0");
+						V_BGA_BASE := V_BGA_XBASE + (y_cells & "000000" & "0");
 					when "11" => -- HS 128 cells
-						V_BGA_BASE := V_BGA_XBASE + (BGA_Y(9 downto 3) & "0000000" & "0");
+						V_BGA_BASE := V_BGA_XBASE + (y_cells & "0000000" & "0");
 					when others => null;
 					end case;
 				end if;
@@ -1482,9 +1510,9 @@ begin
 					BGA_HF <= BGA_VRAM_DO(11);
 					if LSM = "11" then
 						if BGA_VRAM_DO(12) = '1' then	-- VF
-							BGA_TILEBASE <= BGA_VRAM_DO(9 downto 0) & not(BGA_Y(2 downto 0)) & not FIELD & "00";
+							BGA_TILEBASE <= BGA_VRAM_DO(9 downto 0) & not(BGA_Y(3 downto 0)) & "00";
 						else
-							BGA_TILEBASE <= BGA_VRAM_DO(9 downto 0) & BGA_Y(2 downto 0) & FIELD & "00";
+							BGA_TILEBASE <= BGA_VRAM_DO(9 downto 0) & BGA_Y(3 downto 0) & "00";
 						end if;
 					else
 						if BGA_VRAM_DO(12) = '1' then	-- VF
@@ -1495,7 +1523,7 @@ begin
 					end if;
 					BGAC <= BGAC_LOOP;
 				end if;
-						
+
 			when BGAC_LOOP =>
 				if BGA_POS(9) = '0' and WIN_H = '0' and WRIGT = '1' 
 					and BGA_POS(3 downto 0) = "0000" and BGA_POS(8 downto 4) = WHP 
@@ -1503,10 +1531,13 @@ begin
 					WIN_H <= not WIN_H;
 					BGAC <= BGAC_CALC_Y;				
 				elsif BGA_POS(9) = '0' and WIN_H = '1' and WRIGT = '0' 
-					and BGA_POS(3 downto 0) = "0000" and BGA_POS(8 downto 4) = WHP
+				--	and BGA_POS(3 downto 0) = "0000" and BGA_POS(8 downto 4) = WHP
+					and BGA_X(2 downto 0) = "000" and BGA_POS(8 downto 4) = WHP
 				then
 					WIN_H <= not WIN_H;
-					BGAC <= BGAC_CALC_Y;
+					if WIN_V = '0' then
+						BGAC <= BGAC_CALC_Y;
+					end if;
 				elsif BGA_POS(1 downto 0) = "00" and BGA_SEL = '0' and (WIN_H = '1' or WIN_V = '1') then
 					BGA_COLINFO_WE_A <= '0';
 					if BGA_POS(2) = '0' then
@@ -1953,6 +1984,14 @@ end process;
 -- SPRITE ENGINE - PART THREE
 ----------------------------------------------------------------
 process( RST_N, MEMCLK )
+variable obj_vs_var	: std_logic_vector(1 downto 0);
+variable obj_hs_var : std_logic_vector(1 downto 0);
+variable obj_hf_var	: std_logic;
+variable obj_vf_var	: std_logic;
+variable obj_x_var	: std_logic_vector(8 downto 0);
+variable obj_y_ofs_var: std_logic_vector(5 downto 0);
+variable obj_pat_var	: std_logic_vector(10 downto 0);
+
 -- synthesis translate_off
 file F		: text open write_mode is "sp3_dbg.out";
 variable L	: line;
@@ -1987,61 +2026,45 @@ begin
 			when SP3C_NEXT =>
 
 				OBJ_COLINFO_WE_A <= '0';
-				SP3C <= SP3C_Y_RD;
+
+				SP3C <= SP3C_LOOP;
 				if OBJ_NO = OBJ_IDX	then
 					SP3C <= SP3C_DONE;
 				end if;
 
-			when SP3C_Y_RD =>
-				OBJ_VS <= OBJ_SPINFO_Q(7 downto 6);
-				OBJ_HS <= OBJ_SPINFO_Q(9 downto 8);
-				OBJ_X <= OBJ_SPINFO_Q(18 downto 10);
+				obj_vs_var := OBJ_SPINFO_Q(7 downto 6);
+				OBJ_VS <= obj_vs_var;
+				obj_hs_var := OBJ_SPINFO_Q(9 downto 8);
+				OBJ_HS <= obj_hs_var;
+				obj_x_var := OBJ_SPINFO_Q(18 downto 10);
 				if LSM = "11" then
-					OBJ_PAT <= OBJ_SPINFO_Q(28 downto 19) & '0';
-					OBJ_Y_OFS <= OBJ_SPINFO_Q(5 downto 0);
+					obj_pat_var := OBJ_SPINFO_Q(28 downto 19) & '0';
+					obj_y_ofs_var := OBJ_SPINFO_Q(5 downto 0);
 				else
-					OBJ_PAT <= OBJ_SPINFO_Q(29 downto 19);
-					OBJ_Y_OFS <= '0' & OBJ_SPINFO_Q(4 downto 0);
+					obj_pat_var := OBJ_SPINFO_Q(29 downto 19);
+					obj_y_ofs_var := '0' & OBJ_SPINFO_Q(4 downto 0);
 				end if;
-				OBJ_HF <= OBJ_SPINFO_Q(30);
-				OBJ_VF <= OBJ_SPINFO_Q(31);
+				obj_hf_var := OBJ_SPINFO_Q(30);
+				OBJ_HF <= obj_hf_var;
+				obj_vf_var := OBJ_SPINFO_Q(31);
 				OBJ_PAL <= OBJ_SPINFO_Q(33 downto 32);
 				OBJ_PRI <= OBJ_SPINFO_Q(34);
 
 				OBJ_SPINFO_ADDR_RD <= OBJ_NO + 1;
 				OBJ_NO <= OBJ_NO + 1;
 
-				SP3C <= SP3C_CALC_XY;
-
-			when SP3C_CALC_XY =>
-				-- synthesis translate_off
-				write(L, string'("OBJ NO="));
-				hwrite(L, "000" & OBJ_NO);
-				write(L, string'(" VCNT="));
-				hwrite(L, "0000000" & HV_VCNT);
-				write(L, string'(" SP2_Y="));
-				hwrite(L, "0000000" & SP2_Y);
-				write(L, string'(" Y OFS= "));
-				hwrite(L, "00" & OBJ_Y_OFS);
-				write(L, string'(" VS = "));
-				hwrite(L, "000000" & OBJ_VS);
-				write(L, string'(" HS = "));
-				hwrite(L, "000000" & OBJ_HS);
-				writeline(F,L);
-				-- synthesis translate_on
-
 				-- sprite masking algorithm as implemented by gens-ii
-				if OBJ_X = "000000000" and OBJ_VALID_X = '1' then
+				if obj_x_var = "000000000" and OBJ_VALID_X = '1' then
 					OBJ_MASKED <= '1';
 				end if;
 
-				if OBJ_X /= "000000000" then
+				if obj_x_var /= "000000000" then
 					OBJ_VALID_X <= '1';
 				end if;
 
 				OBJ_X_OFS <= "00000";
-				if OBJ_HF = '1' then
-					case OBJ_HS is
+				if obj_hf_var = '1' then
+					case obj_hs_var is
 					when "00" =>	-- 8 pixels
 						OBJ_X_OFS <= "00111";
 					when "01" =>	-- 16 pixels
@@ -2053,38 +2076,34 @@ begin
 					end case;
 				end if;
 
-				if LSM = "11" and OBJ_VF = '1' then
-					case OBJ_VS is
+				if LSM = "11" and obj_vf_var = '1' then
+					case obj_vs_var is
 					when "00" =>	-- 2*8 pixels
-						OBJ_Y_OFS <= "00" & not(OBJ_Y_OFS(3 downto 0));
+						obj_y_ofs_var := "00" & not(obj_y_ofs_var(3 downto 0));
 					when "01" =>	-- 2*16 pixels
-						OBJ_Y_OFS <= "0" & not(OBJ_Y_OFS(4 downto 0));
+						obj_y_ofs_var := "0" & not(obj_y_ofs_var(4 downto 0));
 					when "11" =>	-- 2*32 pixels
-						OBJ_Y_OFS <= not(OBJ_Y_OFS(5 downto 0));
+						obj_y_ofs_var := not(obj_y_ofs_var(5 downto 0));
 					when others =>	-- 2*24 pixels
-						OBJ_Y_OFS <= "101111" - OBJ_Y_OFS; -- 47-obj_y_ofs
+						obj_y_ofs_var := "101111" - obj_y_ofs_var; -- 47-obj_y_ofs
 					end case;
 				end if;
 
-				if LSM /= "11" and OBJ_VF = '1' then
-					case OBJ_VS is
+				if LSM /= "11" and obj_vf_var = '1' then
+					case obj_vs_var is
 					when "00" =>	-- 8 pixels
-						OBJ_Y_OFS <= "000" & not(OBJ_Y_OFS(2 downto 0));
+						obj_y_ofs_var := "000" & not(obj_y_ofs_var(2 downto 0));
 					when "01" =>	-- 16 pixels
-						OBJ_Y_OFS <= "00" & not(OBJ_Y_OFS(3 downto 0));
+						obj_y_ofs_var := "00" & not(obj_y_ofs_var(3 downto 0));
 					when "11" =>	-- 32 pixels
-						OBJ_Y_OFS <= "0" & not(OBJ_Y_OFS(4 downto 0));
+						obj_y_ofs_var := "0" & not(obj_y_ofs_var(4 downto 0));
 					when others =>	-- 24 pixels
-						OBJ_Y_OFS(4 downto 0) <= "10111" - OBJ_Y_OFS(4 downto 0);
+						obj_y_ofs_var := "010111" - obj_y_ofs_var(4 downto 0);
 					end case;
 				end if;
 
-				SP3C <= SP3C_CALC_BASE;
-
-			when SP3C_CALC_BASE =>
-				OBJ_POS <= OBJ_X - "010000000";
-				OBJ_TILEBASE <= (OBJ_PAT & "0000") + ("000" & OBJ_Y_OFS & "0");
-				SP3C <= SP3C_LOOP;
+				OBJ_POS <= obj_x_var - "010000000";
+				OBJ_TILEBASE <= (obj_pat_var & "0000") + ("000" & obj_y_ofs_var & "0");
 
 			-- loop over all sprite pixels on the current line
 			when SP3C_LOOP =>
@@ -2210,7 +2229,7 @@ begin
 					when others =>
 						OBJ_COLNO <= SP3_VRAM_DO(3 downto 0);
 					end case;
-					SP3C <= SP3C_PLOT_RD;
+					SP3C <= SP3C_PLOT;
 				end if;
 
 			when others => -- SP3C_DONE
@@ -2218,6 +2237,8 @@ begin
 
 				OBJ_COLINFO_WE_A <= '0';
 				OBJ_COLINFO_ADDR_A <= (others => '0');
+
+				OBJ_SPINFO_ADDR_RD <= (others => '0');
 
 				if SP3E_ACTIVATE = '1' then
 					SP3C <= SP3C_INIT;
@@ -2269,9 +2290,10 @@ V_INT_POS       <= conv_std_logic_vector(V_INT_V30, 9) when V30='1'
 -- COUNTERS AND INTERRUPTS
 
 Y <= HV_VCNT(7 downto 0);
-PRE_Y <= (HV_VCNT(7 downto 0) + 1) & FIELD when LSM = "11" else '0' & (HV_VCNT(7 downto 0) + 1);
+BG_Y <= Y & FIELD when LSM = "11" else '0' & Y;
+PRE_Y <= (Y + 1) & FIELD when LSM = "11" else '0' & (Y + 1);
 
-HV_VCNT_EXT <= HV_VCNT(7 downto 0) & FIELD_LATCH when LSM = "11" else '0' & HV_VCNT(7 downto 0);
+HV_VCNT_EXT <= Y & FIELD_LATCH when LSM = "11" else '0' & Y;
 HV8 <= HV_VCNT_EXT(8) when LSM = "11" else HV_VCNT_EXT(0);
 
 process( RST_N, CLK )
@@ -2334,13 +2356,8 @@ begin
 				else
 					HV_VCNT <= HV_VCNT + 1;
 				end if;
-				if LSM = "11" then
-					BGB_VSRAM1_LATCH <= VSRAM(1)(10 downto 1);
-					BGA_VSRAM0_LATCH <= VSRAM(0)(10 downto 1);
-				else
-					BGB_VSRAM1_LATCH <= VSRAM(1)(9 downto 0);
-					BGA_VSRAM0_LATCH <= VSRAM(0)(9 downto 0);
-				end if;
+				BGB_VSRAM1_LATCH <= VSRAM(1);
+				BGA_VSRAM0_LATCH <= VSRAM(0);
 
 				if HV_VCNT = "1"&x"FF" then
 					-- FIELD changes at VINT, but the HV_COUNTER reflects the current field from line 0-0
@@ -2404,7 +2421,9 @@ begin
 			if IN_VBL = '0' and DE = '1' then
 				if (HV_HCNT(3 downto 0) = "0100" and HV_HCNT(5 downto 4) /= "11" and HV_HCNT < H_DISP_WIDTH) or
 					(H40 = '1' and (HV_HCNT = 322 or HV_HCNT = 324 or HV_HCNT = 464)) or
-					(H40 = '0' and (HV_HCNT = 290 or HV_HCNT = 486 or HV_HCNT = 258 or HV_HCNT = 260))
+					(H40 = '0' and (HV_HCNT = 290 or HV_HCNT = 486 or HV_HCNT = 258 or HV_HCNT = 260)) or
+					(H40 = '1' and HV_VCNT = '1'&x"FF" and (HV_HCNT = 330 or HV_HCNT = 332)) or
+					(H40 = '0' and HV_VCNT = '1'&x"FF" and (HV_HCNT = 266 or HV_HCNT = 268))
 				then
 					FIFO_EN <= '1';
 				end if;
@@ -2894,9 +2913,9 @@ begin
 				if ADDR(6 downto 1) < 40 then
 					DT_RD_DATA <= FIFO_DATA( CONV_INTEGER( FIFO_RD_POS ) )(15 downto 11) & VSRAM( CONV_INTEGER(ADDR(6 downto 1)) );
 				elsif ADDR(1) = '0' then
-					DT_RD_DATA <= FIFO_DATA( CONV_INTEGER( FIFO_RD_POS ) )(15 downto 11) & '0' & BGA_VSRAM0_LATCH;
+					DT_RD_DATA <= FIFO_DATA( CONV_INTEGER( FIFO_RD_POS ) )(15 downto 11) & BGA_VSRAM0_LATCH;
 				else
-					DT_RD_DATA <= FIFO_DATA( CONV_INTEGER( FIFO_RD_POS ) )(15 downto 11) & '0' & BGB_VSRAM1_LATCH;
+					DT_RD_DATA <= FIFO_DATA( CONV_INTEGER( FIFO_RD_POS ) )(15 downto 11) & BGB_VSRAM1_LATCH;
 				end if;
 				DT_RD_DTACK_N <= '0';
 				ADDR <= ADDR + ADDR_STEP;	
@@ -2925,7 +2944,12 @@ begin
 			end if;
 
 			if DMA_FILL_PRE = '1' and DMAF_SET_REQ = '1' and FIFO_RD_POS = FIFO_WR_POS then
-				DT_DMAF_DATA <= DT_WR_DATA;
+				if CODE(3 downto 0) = "0011" or CODE(3 downto 0) = "0101" then
+					-- CRAM, VSRAM fill gets its data from the next FIFO write position
+					DT_DMAF_DATA <= FIFO_DATA( CONV_INTEGER( FIFO_WR_POS ) );
+				else -- VRAM Write
+					DT_DMAF_DATA <= DT_WR_DATA;
+				end if;
 				DMA_FILL <= '1';
 				DMAF_SET_REQ <= '0';
 			end if;
@@ -2974,11 +2998,7 @@ begin
 			when DMA_FILL_CRAM =>
 				CRAM_WE_A <= '1';
 				CRAM_ADDR_A <= ADDR(6 downto 1);
-				-- CRAM fill gets its data from the next FIFO write position
-				CRAM_D_A(8 downto 6) <= FIFO_DATA( CONV_INTEGER( FIFO_WR_POS ) )(11 downto 9);
-				CRAM_D_A(5 downto 3) <= FIFO_DATA( CONV_INTEGER( FIFO_WR_POS ) )(7 downto 5);
-				CRAM_D_A(2 downto 0) <= FIFO_DATA( CONV_INTEGER( FIFO_WR_POS ) )(3 downto 1);
-				--CRAM_D_A <= DT_DMAF_DATA(11 downto 9) & DT_DMAF_DATA(7 downto 5) & DT_DMAF_DATA(3 downto 1);
+				CRAM_D_A <= DT_DMAF_DATA(11 downto 9) & DT_DMAF_DATA(7 downto 5) & DT_DMAF_DATA(3 downto 1);
 				ADDR <= ADDR + ADDR_STEP;
 				DMA_SOURCE <= DMA_SOURCE + ADDR_STEP;
 				DMA_LENGTH <= DMA_LENGTH - 1;
@@ -2986,9 +3006,8 @@ begin
 				
 			when DMA_FILL_VSRAM =>
 				if ADDR(6 downto 1) < 40 then
-					VSRAM( CONV_INTEGER(ADDR(6 downto 1)) ) <= FIFO_DATA( CONV_INTEGER( FIFO_WR_POS ) )(10 downto 0);
+					VSRAM( CONV_INTEGER(ADDR(6 downto 1)) ) <= DT_DMAF_DATA(10 downto 0);
 				end if;
-				--VSRAM( CONV_INTEGER(ADDR(6 downto 1)) ) <= DT_DMAF_DATA(10 downto 0);
 				ADDR <= ADDR + ADDR_STEP;
 				DMA_SOURCE <= DMA_SOURCE + ADDR_STEP;
 				DMA_LENGTH <= DMA_LENGTH - 1;
@@ -3033,7 +3052,7 @@ begin
 			
 			when DMA_FILL_LOOP =>
 				REG(20) <= DMA_LENGTH(15 downto 8);
-				REG(19) <= DMA_LENGTH(15 downto 8);
+				REG(19) <= DMA_LENGTH(7 downto 0);
 				REG(22) <= DMA_SOURCE(15 downto 8);
 				REG(21) <= DMA_SOURCE(7 downto 0);
 				if DMA_LENGTH = 0 then
@@ -3138,7 +3157,7 @@ begin
 			
 			when DMA_COPY_LOOP =>
 				REG(20) <= DMA_LENGTH(15 downto 8);
-				REG(19) <= DMA_LENGTH(15 downto 8);
+				REG(19) <= DMA_LENGTH(7 downto 0);
 				REG(22) <= DMA_SOURCE(15 downto 8);
 				REG(21) <= DMA_SOURCE(7 downto 0);
 				if DMA_LENGTH = 0 then
@@ -3203,7 +3222,7 @@ begin
 				if DT_FF_DTACK_N = '0' then
 					DT_VBUS_SEL <= '0';
 					REG(20) <= DMA_LENGTH(15 downto 8);
-					REG(19) <= DMA_LENGTH(15 downto 8);
+					REG(19) <= DMA_LENGTH(7 downto 0);
 					REG(22) <= DMA_SOURCE(15 downto 8);
 					REG(21) <= DMA_SOURCE(7 downto 0);
 					if DMA_LENGTH = 0 then
